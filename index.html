@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PromptForge - Gerador & Otimizador de Prompts com IA</title>
+  <link rel="icon" type="image/x-icon" href="assets/icon.ico">
+  <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
+  <link rel="stylesheet" href="styles.css">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="brand">
+      <img src="assets/icon.svg" alt="PromptForge" class="brand-icon">
+      <h1 class="brand-title">PromptForge</h1>
+      <span class="brand-badge">Desktop Edition</span>
+    </div>
+    <div class="header-actions">
+      <button id="btnOpenSettings" class="btn-ghost" title="Configurar chave do Google Gemini">
+        <i data-lucide="key"></i>
+        <span id="apiKeyStatusText">Configurar Gemini API</span>
+      </button>
+      <button id="btnOpenGuide" class="btn-ghost" title="Dicas de Engenharia de Prompt">
+        <i data-lucide="book-open"></i>
+        <span>Guia & Dicas</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="app-container">
+    
+    <!-- Painel Esquerdo: Entrada e Parâmetros -->
+    <section class="glass-panel">
+      <div class="input-section">
+        <div>
+          <div class="section-label">
+            <span>Sua Ideia Simples</span>
+            <span style="font-size: 0.7rem; color: var(--accent-cyan); font-weight: 500;">Digite do seu jeito</span>
+          </div>
+          <div class="textarea-wrapper">
+            <textarea 
+              id="rawIdeaInput" 
+              class="prompt-textarea" 
+              placeholder="Ex: quero aprender SQL para análise de dados do zero..."
+            ></textarea>
+          </div>
+          <div class="quick-examples">
+            <span class="example-pill" data-text="Quero aprender SQL para análise de dados do zero" data-cat="study" data-tone="didactic">💡 Aprender SQL</span>
+            <span class="example-pill" data-text="Crie um artigo para o LinkedIn sobre inteligência artificial no trabalho" data-cat="writing" data-tone="creative">💡 Post LinkedIn</span>
+            <span class="example-pill" data-text="Escreva uma função Python para ler dados de um CSV e gerar gráficos" data-cat="coding" data-tone="technical">💡 Script Python</span>
+            <span class="example-pill" data-text="Plano de transição de carreira para a área de tecnologia em 6 meses" data-cat="business" data-tone="concise">💡 Plano de Carreira</span>
+          </div>
+        </div>
+
+        <!-- Categoria -->
+        <div>
+          <div class="section-label">
+            <span>Categoria do Objetivo</span>
+          </div>
+          <div class="category-grid" id="categoryContainer">
+            <!-- Injetado dinamicamente via JS -->
+          </div>
+        </div>
+
+        <!-- Tom de Voz -->
+        <div>
+          <div class="section-label">
+            <span>Tom & Estilo de Resposta</span>
+          </div>
+          <select id="toneSelect" class="tone-select">
+            <!-- Injetado dinamicamente via JS -->
+          </select>
+        </div>
+
+        <!-- Botão de Ação Principal -->
+        <button id="btnForge" class="btn-primary" style="width: 100%;">
+          <i data-lucide="sparkles" id="forgeIcon"></i>
+          <span id="forgeBtnText">Forjar Prompt Mestre</span>
+        </button>
+      </div>
+
+      <!-- Histórico & Favoritos -->
+      <div class="history-section">
+        <div class="history-tabs">
+          <button id="tabRecent" class="tab-btn active">Histórico Recente</button>
+          <button id="tabFavs" class="tab-btn">Favoritos ⭐</button>
+        </div>
+        <div id="historyList" class="history-list">
+          <!-- Itens do histórico aparecem aqui -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Painel Direito: Prompt Gerado, Raio-X & Testador -->
+    <section class="glass-panel result-panel">
+      
+      <!-- Estado Inicial (Vazio) -->
+      <div id="emptyState" class="empty-state">
+        <i data-lucide="anvil" class="empty-icon"></i>
+        <h3 class="empty-title">Nenhum prompt forjado ainda</h3>
+        <p class="empty-desc">
+          Digite qualquer frase ou ideia simples no painel à esquerda e clique em <b>Forjar Prompt Mestre</b>. Nós adicionaremos contexto, persona, instruções e restrições automaticamente.
+        </p>
+      </div>
+
+      <!-- Área de Conteúdo Gerado -->
+      <div id="resultContent" style="display: none; flex-direction: column; gap: 1.5rem;">
+        
+        <!-- Cabeçalho do Resultado -->
+        <div class="result-header">
+          <div class="result-title-group">
+            <h2 id="promptTitle">Título do Prompt</h2>
+            <div style="display: flex; gap: 0.5rem; margin-top: 0.35rem;">
+              <span id="badgeCategory" class="brand-badge" style="background: rgba(59, 130, 246, 0.2); color: #93c5fd; border-color: rgba(59, 130, 246, 0.4);">Categoria</span>
+              <span id="badgeTone" class="brand-badge" style="background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border-color: rgba(16, 185, 129, 0.4);">Tom</span>
+            </div>
+          </div>
+          <div class="result-actions">
+            <button id="btnFavCurrent" class="btn-ghost" title="Salvar nos Favoritos">
+              <i data-lucide="star" id="favStarIcon"></i>
+              <span>Favoritar</span>
+            </button>
+            <button id="btnTestPrompt" class="btn-ghost" style="border-color: rgba(99, 102, 241, 0.4); color: #a5b4fc;" title="Ver a resposta da IA para esse prompt">
+              <i data-lucide="play"></i>
+              <span>Testar Agora</span>
+            </button>
+            <button id="btnCopyPrompt" class="btn-primary" style="padding: 0.5rem 1.25rem; font-size: 0.88rem;">
+              <i data-lucide="copy"></i>
+              <span>Copiar Prompt</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Box do Prompt Mestre -->
+        <div class="prompt-box-card">
+          <div class="prompt-box-header">
+            <div class="prompt-box-tag">
+              <i data-lucide="terminal" style="width: 15px; height: 15px;"></i>
+              <span>Prompt Estruturado (Pronto para Colar)</span>
+            </div>
+            <span style="font-size: 0.75rem; color: var(--text-muted);">Compatível com ChatGPT, Claude, Gemini & DeepSeek</span>
+          </div>
+          <pre id="promptTextDisplay" class="prompt-content"></pre>
+        </div>
+
+        <!-- Raio-X Educativo (Modo Educativo) -->
+        <div class="xray-container">
+          <div class="xray-header">
+            <i data-lucide="graduation-cap"></i>
+            <span>Raio-X Educativo: Como Este Prompt Foi Construído</span>
+          </div>
+          <div id="xrayCardsContainer" class="xray-grid">
+            <!-- Cards de técnicas gerados dinamicamente -->
+          </div>
+          <div id="quickTipsContainer" class="tips-list">
+            <!-- Dicas de ouro -->
+          </div>
+        </div>
+
+        <!-- Playground / Área de Teste Embutida -->
+        <div id="playgroundArea" class="playground-section">
+          <div class="playground-header">
+            <div class="playground-title">
+              <i data-lucide="bot"></i>
+              <span>Resposta em Tempo Real da IA (Google Gemini)</span>
+            </div>
+            <button id="btnClosePlayground" class="icon-btn-sm" title="Fechar teste">
+              <i data-lucide="x"></i>
+            </button>
+          </div>
+          <div id="playgroundOutput" class="playground-response">
+            Carregando resposta da IA...
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Modal de Configurações da API -->
+  <div id="settingsModal" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">Configurar Gemini API</h3>
+        <button id="btnCloseSettings" class="icon-btn-sm">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <p class="modal-help">
+        Para gerar expansões ultra personalizadas e testar os prompts em tempo real, você pode inserir sua chave gratuita do <b>Google AI Studio</b>. Ela é salva exclusivamente no seu computador (localStorage).
+      </p>
+      
+      <label class="section-label">Chave de API (Gemini API Key)</label>
+      <input type="password" id="apiKeyInput" class="modal-input" placeholder="AIzaSy...">
+      
+      <div class="modal-help" style="margin-bottom: 1.5rem;">
+        👉 <b>Não tem uma chave ainda?</b> Obtenha em menos de 1 minuto gratuitamente: <br>
+        <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">Clique aqui para abrir o Google AI Studio</a> (basta logar com sua conta Google e clicar em "Create API Key").
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+        <button id="btnClearApiKey" class="btn-ghost" style="color: var(--danger);">Remover Chave</button>
+        <button id="btnSaveApiKey" class="btn-primary">Salvar Chave</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal do Guia de Engenharia de Prompt -->
+  <div id="guideModal" class="modal-backdrop">
+    <div class="modal-card" style="max-width: 650px;">
+      <div class="modal-header">
+        <h3 class="modal-title">Guia Rápido: Os 5 Pilares de um Prompt Mestre</h3>
+        <button id="btnCloseGuide" class="icon-btn-sm">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 1rem; font-size: 0.88rem; color: var(--text-secondary); line-height: 1.6; max-height: 480px; overflow-y: auto; padding-right: 0.5rem;">
+        <p>A maioria das pessoas obtém respostas genéricas das IAs porque faz perguntas genéricas. O <b>PromptForge</b> aplica automaticamente estes 5 princípios em cada ideia sua:</p>
+        
+        <div style="background: rgba(255,255,255,0.03); padding: 0.75rem 1rem; border-radius: 10px; border-left: 3px solid var(--accent-purple);">
+          <b style="color: white;">1. Persona & Mentalidade:</b> Em vez de perguntar a esmo, diga à IA <i>quem</i> ela é (ex: "Atue como um Desenvolvedor Sênior"). Isso ativa os pesos de maior qualidade no cérebro do modelo.
+        </div>
+
+        <div style="background: rgba(255,255,255,0.03); padding: 0.75rem 1rem; border-radius: 10px; border-left: 3px solid var(--accent-blue);">
+          <b style="color: white;">2. Contexto de Fundo:</b> Explique o cenário e o nível de profundidade desejado. A IA não adivinha o que está na sua cabeça.
+        </div>
+
+        <div style="background: rgba(255,255,255,0.03); padding: 0.75rem 1rem; border-radius: 10px; border-left: 3px solid var(--accent-cyan);">
+          <b style="color: white;">3. Instruções Passo a Passo:</b> Divida a tarefa em etapas lógicas (ex: 1. Diagnóstico, 2. Solução, 3. Exemplos).
+        </div>
+
+        <div style="background: rgba(255,255,255,0.03); padding: 0.75rem 1rem; border-radius: 10px; border-left: 3px solid #f59e0b;">
+          <b style="color: white;">4. Restrições Negativas:</b> Dizer o que <i>não fazer</i> (ex: "não dê introduções longas", "não use jargões") poupa tempo e evita respostas prolixas.
+        </div>
+
+        <div style="background: rgba(255,255,255,0.03); padding: 0.75rem 1rem; border-radius: 10px; border-left: 3px solid var(--success);">
+          <b style="color: white;">5. Formato de Saída Estrito:</b> Especifique se quer uma tabela, código comentado, checklist ou tópicos ordenados.
+        </div>
+      </div>
+      <div style="margin-top: 1.5rem; text-align: right;">
+        <button id="btnGotItGuide" class="btn-primary" style="padding: 0.5rem 1.25rem;">Entendido!</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast">
+    <i data-lucide="check-circle" id="toastIcon"></i>
+    <span id="toastMessage">Mensagem de aviso</span>
+  </div>
+
+  <!-- Scripts -->
+  <script src="prompt-engine.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
