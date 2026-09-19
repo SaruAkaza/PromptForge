@@ -109,6 +109,11 @@ const PROMPT_TONES = {
         id: 'creative',
         name: 'Criativo & Inovador',
         description: 'Pensamento fora da caixa, engajante e inspirador'
+    },
+    human: {
+        id: 'human',
+        name: 'Humano & Natural (Anti-IA)',
+        description: 'Voz autêntica, sem clichês de IA, sem travessões e com ritmo variado'
     }
 };
 
@@ -137,7 +142,13 @@ Seu objetivo:
    - [INSTRUÇÕES PASSO A PASSO]: O que a IA deve cobrir em sequência.
    - [RESTRIÇÕES & REGRAS]: O que a IA NÃO deve fazer (evitar respostas genéricas, proibições, escopo).
    - [FORMATO DA RESPOSTA]: Como a saída deve ser entregue (Markdown, tabelas, código, tópicos).
-3. Gerar um RAIO-X EDUCATIVO explicando ao usuário exatamente por que esse prompt é muito melhor do que a frase simples dele e quais técnicas foram aplicadas.
+3. Aplicar diretrizes da Skill Humanizer (Linguagem Humana & Anti-Clichês de IA):
+   - Proibir travessões (—) usados como conectores universais.
+   - Proibir a estrutura de contraste vazia "não apenas X, mas também Y" ou "não é X, é Y".
+   - Evitar termos robóticos e clichês de chatbot como "crucial", "robusto", "mergulhar", "paisagem", "testemunho", "no cerne".
+   - Variar naturalmente o tamanho das frases (evitar ritmo artificial de listas com rótulos em negrito quando o texto puder ser fluido).
+   - Eliminar introduções e conclusões óbvias de chatbot ("com certeza!", "espero ter ajudado!").
+4. Gerar um RAIO-X EDUCATIVO explicando ao usuário exatamente por que esse prompt evita respostas genéricas e quais técnicas foram aplicadas.
 
 Responda ESTRITAMENTE em formato JSON com o seguinte schema (não adicione blocos extras fora do JSON):
 {
@@ -480,15 +491,16 @@ Considere que o objetivo precisa de profundidade, aplicando padrões profissiona
 Fornecer um plano detalhado, prático e executável que atenda plenamente à demanda: "${rawIdea}".
 
 ### 4. INSTRUÇÕES DETALHADAS
-1. Faça um diagnóstico inicial do desafio, mapeando premissas e variáveis cruciais.
+1. Faça um diagnóstico inicial do desafio, mapeando premissas e pontos centrais.
 2. Apresente a solução em etapas lógicas e estruturadas, justificando as escolhas feitas.
 3. Destaque erros comuns e armadilhas a serem evitados durante a execução.
 4. Forneça exemplos práticos ou modelos imediatamente aplicáveis.
 
 ### 5. REGRAS & RESTRIÇÕES
 - Não forneça respostas vagas ou teóricas demais; priorize ações concretas.
-- Seja objetivo e vá direto ao cerne da questão.
+- Seja objetivo e vá direto ao ponto principal.
 - Caso existam alternativas, compare os prós e contras sucintamente.
+- Evite fórmulas prontas de chatbot, travessões excessivos e introduções repetitivas.
 
 ### 6. FORMATO DE SAÍDA
 ${category.outputFormat} Use marcações em Markdown, negritos para ênfase e listas ordenadas para facilitar a leitura.
@@ -512,8 +524,8 @@ ${category.outputFormat} Use marcações em Markdown, negritos para ênfase e li
             }
         ],
         quickTips: [
-            'Dica: Se a resposta da IA for muito longa, responda apenas: "Resuma os 3 pontos mais cruciais em uma tabela".',
-            'Dica: Conecte pelo menos 2 IAs nas Configurações (ex: Gemini e Groq grátis) para desbloquear o Conselho de IAs com Debate e Consenso!'
+            'Dica: Se a resposta da IA for muito longa, responda apenas: "Resuma os pontos principais em uma tabela".',
+            'Dica: Conecte ao menos 2 IAs nas Configurações (ex: Gemini e Groq grátis) para desbloquear o Conselho de IAs com Debate e Consenso.'
         ],
         isOfflineFallback: true
     };

@@ -1,49 +1,39 @@
-# ⚡ PromptForge — Multi-AI Edition
+# PromptForge
 
-**PromptForge** é um aplicativo desktop projetado para resolver a dificuldade na criação de prompts de alto nível para Inteligências Artificiais. A partir de uma frase simples ou ideia preliminar, o sistema forja prompts ricos em contexto, personas especializadas, objetivos claros, instruções passo a passo e restrições negativas, além de trazer o inovador **Conselho de IAs (Debate e Consenso Conjunto)**.
+PromptForge é um aplicativo desktop para Windows que ajuda a montar prompts detalhados para inteligências artificiais a partir de uma frase simples. O programa organiza o pedido com instruções de contexto, persona, restrições e formato de resposta, e inclui um modo para rodar o mesmo prompt em modelos diferentes ao mesmo tempo para comparar ou unificar as respostas.
 
----
+## Conselho de IAs
 
-## 🏛️ O Conselho de IAs (AI Council)
+O programa pode consultar dois ou mais modelos em sequência sobre o mesmo prompt:
 
-Em vez de apenas respostas isoladas, o PromptForge reúne múltiplos modelos de ponta para uma mesa redonda:
+1. Propostas iniciais: cada modelo conectado responde à pergunta de forma independente.
+2. Debate: os modelos comparam as respostas, apontando omissões e pontos fortes de cada abordagem.
+3. Consenso final: o sistema reúne os melhores argumentos em uma resposta única e organizada.
 
-1. **Fase 1 — Propostas Iniciais**: Cada IA conectada analisa o prompt e gera uma proposta independente com base em seus pontos fortes.
-2. **Fase 2 — Debate e Crítica Cruzada**: Os modelos avaliam as propostas uns dos outros, apontando vantagens, complementos e pontos cegos.
-3. **Fase 3 — Síntese & Consenso Final**: O conselho unifica o que há de melhor em cada resposta, eliminando redundâncias e entregando uma **Resposta de Consenso Final** definitiva e pronta para uso!
+Para usar o conselho, conecte ao menos duas chaves de API nas configurações. O Google Gemini e o Groq oferecem planos gratuitos sem cobrança inicial.
 
-> [!TIP]
-> O Conselho de IAs requer pelo menos **2 IAs conectadas**. Você pode usar o **Google Gemini** e o **Groq** (que rodam DeepSeek e Llama), ambos com opções **100% gratuitas**!
+## Modelos suportados
 
----
+- Google Gemini (gemini-2.5-flash e gemini-1.5-flash via Google AI Studio)
+- Groq (llama-3.3-70b-versatile e deepseek-r1-distill-llama-70b via Groq Console)
+- OpenAI (gpt-4o e gpt-4o-mini via OpenAI Platform)
+- Anthropic Claude (claude-3-5-sonnet e claude-3-5-haiku via Anthropic Console)
+- Motor local estruturado (funciona offline sem chave de API)
 
-## 🤖 Motores de IA Suportados
+## Como abrir o programa
 
-- **Google Gemini**: Modelos `gemini-2.5-flash` e `gemini-1.5-flash` (gratuito pelo [Google AI Studio](https://aistudio.google.com/app/apikey)).
-- **Groq**: Modelos `llama-3.3-70b-versatile` e `deepseek-r1-distill-llama-70b` com respostas instantâneas (gratuito pelo [Groq Console](https://console.groq.com/keys)).
-- **OpenAI ChatGPT**: Modelos `gpt-4o` e `gpt-4o-mini` ([OpenAI Platform](https://platform.openai.com/api-keys)).
-- **Anthropic Claude**: Modelos `claude-3-5-sonnet` e `claude-3-5-haiku` ([Anthropic Console](https://console.anthropic.com/settings/keys)).
-- **Motor Estrutural Local**: Funciona offline mesmo sem nenhuma chave de API configurada.
+- Pelo atalho PromptForge na Área de Trabalho (abre como janela independente).
+- Pelo arquivo PromptForge.bat.
+- Pelo arquivo index.html em qualquer navegador.
 
----
+## Recursos
 
-## 🚀 Como Iniciar o Aplicativo
+- Gerador de prompts com parâmetros de categoria, tom e formato de saída.
+- Modo educativo que explica por que cada bloco do prompt foi adicionado.
+- Central de conexões para salvar as chaves de API no próprio navegador (localStorage).
+- Teste individual com um clique e sessão de debate do conselho.
+- Histórico local e lista de favoritos.
 
-1. **Pela Área de Trabalho**: Duplo clique no atalho **`PromptForge`** na Área de Trabalho (janela limpa e nativa de aplicativo).
-2. **Pelo Executável em Lote**: Executando `PromptForge.bat`.
-3. **Pelo Navegador**: Abrindo `index.html`.
+## Repositório
 
----
-
-## 🧠 Recursos Principais
-
-- **Meta-Prompting Avançado**: 5 pilares essenciais (Persona, Contexto, Instruções, Restrições e Formato de Saída).
-- **Raio-X Educativo**: Explica didaticamente as técnicas utilizadas para você aprender a criar prompts melhores.
-- **Central de Conexões**: Gerenciamento individual de chaves com armazenamento local e seguro (`localStorage`).
-- **Teste Rápido Individual & Conselho de IAs**: Teste com 1 modelo ou convoque o debate entre todos.
-- **Histórico & Favoritos**: Salva e organiza todos os prompts forjados.
-
----
-
-## 🌐 Repositório no GitHub
-- [https://github.com/SaruAkaza/PromptForge](https://github.com/SaruAkaza/PromptForge)
+https://github.com/SaruAkaza/PromptForge

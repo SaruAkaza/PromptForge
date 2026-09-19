@@ -475,9 +475,9 @@ function displayPromptResult(data) {
 function handleCopyPrompt() {
     if (!state.currentPromptData) return;
     navigator.clipboard.writeText(state.currentPromptData.formattedPrompt).then(() => {
-        showToast('Prompt copiado! Cole em qualquer IA de sua preferência.', 'success');
+        showToast('Prompt copiado para a área de transferência.', 'success');
     }).catch(() => {
-        showToast('Erro ao copiar para a área de transferência', 'danger');
+        showToast('Erro ao copiar para a área de transferência.', 'danger');
     });
 }
 
@@ -494,7 +494,7 @@ function handleToggleFavoriteCurrent() {
         renderHistory();
     }
 
-    showToast(state.currentPromptData.isFavorite ? 'Adicionado aos Favoritos! ⭐' : 'Removido dos Favoritos', 'info');
+    showToast(state.currentPromptData.isFavorite ? 'Salvo nos favoritos.' : 'Removido dos favoritos.', 'info');
 }
 
 function updateFavoriteButtonUI(isFav) {
@@ -566,8 +566,7 @@ async function handleCallCouncil() {
 
     // Requisito estrito: mínimo de 2 provedores
     if (connectedProviders.length < 2) {
-        showToast('O Conselho de IAs requer pelo menos 2 IAs conectadas! Conecte o Groq ou Gemini (ambos gratuitos).', 'warning');
-        // Abre o modal diretamente na aba do Groq ou Gemini que estiver faltando
+        showToast('O Conselho precisa de ao menos 2 IAs conectadas. Configure o Groq ou Gemini para continuar.', 'warning');
         const missing = !state.apiKeys.groq ? 'groq' : 'gemini';
         openConnectionsModal(missing);
         return;
@@ -579,10 +578,10 @@ async function handleCallCouncil() {
 
     // Reseta visual
     dom.councilSpinner.style.display = 'inline-block';
-    dom.councilStatusText.textContent = `Convocando Conselho com ${connectedProviders.length} IAs participantes...`;
+    dom.councilStatusText.textContent = `Consultando ${connectedProviders.length} modelos conectados...`;
     dom.councilProposalsGrid.innerHTML = `
         <div style="color: var(--text-muted); font-size: 0.85rem; padding: 1rem;">
-            Aguardando propostas individuais dos membros do conselho...
+            Aguardando propostas individuais dos modelos...
         </div>
     `;
     dom.councilDebateSection.style.display = 'none';
@@ -629,8 +628,8 @@ async function handleCallCouncil() {
 
         // Status Final
         dom.councilSpinner.style.display = 'none';
-        dom.councilStatusText.textContent = `✓ Sessão concluída com sucesso! Consenso unificado alcançado com ${councilResult.participatingCount} IAs.`;
-        showToast('O Conselho de IAs alcançou um consenso unificado!', 'success');
+        dom.councilStatusText.textContent = `Sessão concluída. Consenso reunido a partir de ${councilResult.participatingCount} modelos.`;
+        showToast('Consenso unificado gerado.', 'success');
 
     } catch (err) {
         console.error('Erro no Conselho de IAs:', err);
@@ -646,9 +645,9 @@ function handleCopyConsensus() {
     const text = dom.councilConsensusContent.textContent;
     if (!text) return;
     navigator.clipboard.writeText(text).then(() => {
-        showToast('Resposta de Consenso Final copiada com sucesso!', 'success');
+        showToast('Resposta de consenso copiada.', 'success');
     }).catch(() => {
-        showToast('Erro ao copiar', 'danger');
+        showToast('Erro ao copiar.', 'danger');
     });
 }
 
