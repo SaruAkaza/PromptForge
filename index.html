@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PromptForge - Gerador de Prompts & Conselho de IAs</title>
+  <title>PromptForge - Ateliê de Prompts</title>
   <link rel="icon" type="image/x-icon" href="assets/icon.ico">
   <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
   <link rel="stylesheet" href="styles.css">
@@ -17,65 +17,64 @@
     <div class="brand">
       <img src="assets/icon.svg" alt="PromptForge" class="brand-icon">
       <h1 class="brand-title">PromptForge</h1>
-      <span class="brand-badge">Multi-AI Edition</span>
+      <span class="brand-badge">Desktop</span>
     </div>
     <div class="header-actions">
-      <button id="btnOpenSettings" class="btn-ghost" title="Configurar chaves dos provedores de IA">
-        <i data-lucide="cpu"></i>
-        <span id="connectionsStatusText">Central de IAs (0/4 Conectadas)</span>
+      <button id="btnOpenSettings" class="btn-ghost" title="Configurar chaves dos modelos">
+        <i data-lucide="sliders-horizontal" style="width: 15px; height: 15px;"></i>
+        <span id="connectionsStatusText">Modelos (0/4 conectados)</span>
       </button>
-      <button id="btnOpenGuide" class="btn-ghost" title="Dicas de Engenharia de Prompt">
-        <i data-lucide="book-open"></i>
-        <span>Guia & Dicas</span>
+      <button id="btnOpenGuide" class="btn-ghost" title="Princípios de estruturação">
+        <i data-lucide="book-open" style="width: 15px; height: 15px;"></i>
+        <span>Princípios</span>
       </button>
     </div>
   </header>
 
-  <!-- Main Container -->
+  <!-- Estrutura Principal -->
   <main class="app-container">
     
-    <!-- Painel Esquerdo: Entrada e Parâmetros -->
-    <section class="glass-panel">
+    <!-- Painel Esquerdo: Briefing e Parâmetros -->
+    <section class="panel">
       <div class="input-section">
         <div>
           <div class="section-label">
-            <span>Sua Ideia Simples</span>
-            <span style="font-size: 0.7rem; color: var(--accent-cyan); font-weight: 500;">Digite do seu jeito</span>
+            <span>Briefing inicial</span>
           </div>
           <div class="textarea-wrapper">
             <textarea 
               id="rawIdeaInput" 
               class="prompt-textarea" 
-              placeholder="Ex: crie uma estratégia de marketing para lançamento de infoproduto..."
+              placeholder="Descreva o que você precisa resolver, planejar ou redigir..."
             ></textarea>
           </div>
           <div class="quick-examples">
-            <span class="example-pill" data-text="Quero aprender SQL para análise de dados do zero" data-cat="study" data-tone="didactic">💡 Aprender SQL</span>
-            <span class="example-pill" data-text="Crie um artigo para o LinkedIn sobre inteligência artificial no trabalho" data-cat="writing" data-tone="creative">💡 Post LinkedIn</span>
-            <span class="example-pill" data-text="Escreva uma função Python para ler dados de um CSV e gerar gráficos" data-cat="coding" data-tone="technical">💡 Script Python</span>
-            <span class="example-pill" data-text="Plano de transição de carreira para a área de tecnologia em 6 meses" data-cat="business" data-tone="concise">💡 Plano de Carreira</span>
+            <span class="example-pill" data-text="Aprender SQL para análise de dados do zero" data-cat="study" data-tone="didactic">Aprender SQL</span>
+            <span class="example-pill" data-text="Artigo profissional sobre impacto de tecnologia no trabalho" data-cat="writing" data-tone="human">Artigo profissional</span>
+            <span class="example-pill" data-text="Função Python para ler dados de um CSV e gerar gráficos" data-cat="coding" data-tone="technical">Script Python</span>
+            <span class="example-pill" data-text="Plano de transição de carreira para a área de tecnologia em 6 meses" data-cat="business" data-tone="concise">Plano de carreira</span>
           </div>
         </div>
 
-        <!-- Seletor do Motor de IA Gerador -->
+        <!-- Seletor do Modelo Gerador -->
         <div>
           <div class="section-label">
-            <span>Motor de IA Forjador</span>
-            <span id="activeEngineBadge" style="font-size: 0.7rem; color: #38bdf8; font-weight: 600;">Google Gemini</span>
+            <span>Modelo gerador</span>
+            <span id="activeEngineBadge" style="font-size: 0.72rem; color: var(--ink-secondary);">Google Gemini</span>
           </div>
           <select id="forgingProviderSelect" class="custom-select">
-            <option value="gemini">Google Gemini 2.5 Flash (Recomendado)</option>
-            <option value="groq">Groq — DeepSeek R1 / Llama 3.3 (Ultra Rápido)</option>
-            <option value="openai">OpenAI — GPT-4o-mini</option>
-            <option value="claude">Anthropic — Claude 3.5 Haiku</option>
-            <option value="offline">Motor Estrutural Local (Offline)</option>
+            <option value="gemini">Google Gemini 2.5 Flash</option>
+            <option value="groq">Groq (Llama 3.3 70B / DeepSeek R1)</option>
+            <option value="openai">OpenAI GPT-4o-mini</option>
+            <option value="claude">Anthropic Claude 3.5 Haiku</option>
+            <option value="offline">Motor local estruturado</option>
           </select>
         </div>
 
         <!-- Categoria -->
         <div>
           <div class="section-label">
-            <span>Categoria do Objetivo</span>
+            <span>Área da tarefa</span>
           </div>
           <div class="category-grid" id="categoryContainer">
             <!-- Injetado dinamicamente via JS -->
@@ -85,152 +84,149 @@
         <!-- Tom de Voz -->
         <div>
           <div class="section-label">
-            <span>Tom & Estilo de Resposta</span>
+            <span>Diretriz de tom e linguagem</span>
           </div>
           <select id="toneSelect" class="custom-select">
             <!-- Injetado dinamicamente via JS -->
           </select>
         </div>
 
-        <!-- Botão de Ação Principal -->
-        <button id="btnForge" class="btn-primary" style="width: 100%;">
-          <i data-lucide="sparkles" id="forgeIcon"></i>
-          <span id="forgeBtnText">Forjar Prompt Mestre</span>
+        <!-- Botão de Ação -->
+        <button id="btnForge" class="btn-primary" style="width: 100%; margin-top: 0.25rem;">
+          <i data-lucide="file-text" id="forgeIcon" style="width: 16px; height: 16px;"></i>
+          <span id="forgeBtnText">Estruturar prompt</span>
         </button>
       </div>
 
-      <!-- Histórico & Favoritos -->
+      <!-- Histórico -->
       <div class="history-section">
         <div class="history-tabs">
-          <button id="tabRecent" class="tab-btn active">Histórico Recente</button>
-          <button id="tabFavs" class="tab-btn">Favoritos</button>
+          <button id="tabRecent" class="tab-btn active">Recentes</button>
+          <button id="tabFavs" class="tab-btn">Salvos</button>
         </div>
         <div id="historyList" class="history-list">
-          <!-- Itens do histórico aparecem aqui -->
+          <!-- Itens do histórico -->
         </div>
       </div>
     </section>
 
-    <!-- Painel Direito: Prompt Gerado, Raio-X & Testador & Conselho -->
-    <section class="glass-panel result-panel">
+    <!-- Painel Direito: Manuscrito, Estrutura e Revisão -->
+    <section class="panel result-panel">
       
       <!-- Estado Inicial (Vazio) -->
       <div id="emptyState" class="empty-state">
-        <i data-lucide="anvil" class="empty-icon"></i>
-        <h3 class="empty-title">Nenhum prompt criado ainda</h3>
+        <div class="empty-quote">"Uma boa instrução é metade da solução."</div>
         <p class="empty-desc">
-          Digite uma ideia no painel ao lado e clique em Criar prompt mestre. Você poderá testar o resultado individualmente ou reunir o Conselho de IAs para comparar respostas.
+          Preencha o briefing no painel ao lado e selecione as diretrizes desejadas para gerar o documento com papel prático, contexto, regras e formato de entrega.
         </p>
       </div>
 
       <!-- Área de Conteúdo Gerado -->
       <div id="resultContent" style="display: none; flex-direction: column; gap: 1.5rem;">
         
-        <!-- Cabeçalho do Resultado -->
+        <!-- Cabeçalho do Documento -->
         <div class="result-header">
           <div class="result-title-group">
-            <h2 id="promptTitle">Título do Prompt</h2>
-            <div style="display: flex; gap: 0.5rem; margin-top: 0.35rem;">
-              <span id="badgeCategory" class="brand-badge" style="background: rgba(59, 130, 246, 0.2); color: #93c5fd; border-color: rgba(59, 130, 246, 0.4);">Categoria</span>
-              <span id="badgeTone" class="brand-badge" style="background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border-color: rgba(16, 185, 129, 0.4);">Tom</span>
-              <span id="badgeEngineUsed" class="brand-badge" style="background: rgba(139, 92, 246, 0.2); color: #c4b5fd; border-color: rgba(139, 92, 246, 0.4);">Motor: Gemini</span>
+            <h2 id="promptTitle">Título do documento</h2>
+            <div class="meta-badges">
+              <span id="badgeCategory" class="meta-badge">Categoria</span>
+              <span id="badgeTone" class="meta-badge">Tom</span>
+              <span id="badgeEngineUsed" class="meta-badge">Modelo: Gemini</span>
             </div>
           </div>
           <div class="result-actions">
-            <button id="btnFavCurrent" class="btn-ghost" title="Salvar nos Favoritos">
-              <i data-lucide="star" id="favStarIcon"></i>
-              <span>Favoritar</span>
+            <button id="btnFavCurrent" class="btn-ghost" title="Salvar no arquivo local">
+              <i data-lucide="bookmark" id="favStarIcon" style="width: 15px; height: 15px;"></i>
+              <span>Salvar</span>
             </button>
-            <button id="btnTestSinglePrompt" class="btn-ghost" style="border-color: rgba(99, 102, 241, 0.4); color: #a5b4fc;" title="Testar com a IA ativa">
-              <i data-lucide="play"></i>
-              <span>Teste Individual</span>
+            <button id="btnTestSinglePrompt" class="btn-ghost" title="Executar teste individual">
+              <i data-lucide="play" style="width: 15px; height: 15px;"></i>
+              <span>Testar modelo</span>
             </button>
-            <button id="btnCallCouncil" class="btn-council" title="Debate entre múltiplos modelos e resposta de consenso">
-              <i data-lucide="users"></i>
-              <span>Conselho de IAs</span>
+            <button id="btnCallCouncil" class="btn-council" title="Consultar múltiplos modelos em conjunto">
+              <i data-lucide="users" style="width: 15px; height: 15px;"></i>
+              <span>Mesa do conselho</span>
             </button>
-            <button id="btnCopyPrompt" class="btn-primary" style="padding: 0.5rem 1.25rem; font-size: 0.88rem;">
-              <i data-lucide="copy"></i>
-              <span>Copiar Prompt</span>
+            <button id="btnCopyPrompt" class="btn-primary" style="padding: 0.45rem 1rem; font-size: 0.82rem;">
+              <i data-lucide="copy" style="width: 15px; height: 15px;"></i>
+              <span>Copiar prompt</span>
             </button>
           </div>
         </div>
 
-        <!-- Box do Prompt Mestre -->
+        <!-- Folha do Prompt Estruturado -->
         <div class="prompt-box-card">
           <div class="prompt-box-header">
             <div class="prompt-box-tag">
-              <i data-lucide="terminal" style="width: 15px; height: 15px;"></i>
-              <span>Prompt Estruturado (Pronto para Colar)</span>
+              <i data-lucide="align-left" style="width: 14px; height: 14px;"></i>
+              <span>Documento estruturado</span>
             </div>
-            <span style="font-size: 0.75rem; color: var(--text-muted);">Compatível com qualquer modelo</span>
+            <span style="font-size: 0.74rem; color: var(--ink-muted);">Pronto para aplicação em qualquer modelo</span>
           </div>
           <pre id="promptTextDisplay" class="prompt-content"></pre>
         </div>
 
-        <!-- Raio-X Educativo (Modo Educativo) -->
+        <!-- Notas Estruturais (Substituição editorial do Raio-X) -->
         <div class="xray-container">
           <div class="xray-header">
-            <i data-lucide="graduation-cap"></i>
-            <span>Raio-X Educativo: Como Este Prompt Foi Construído</span>
+            <i data-lucide="info" style="width: 16px; height: 16px; color: var(--accent);"></i>
+            <span>Notas de engenharia e estrutura</span>
           </div>
           <div id="xrayCardsContainer" class="xray-grid">
             <!-- Cards de técnicas gerados dinamicamente -->
           </div>
           <div id="quickTipsContainer" class="tips-list">
-            <!-- Dicas de ouro -->
+            <!-- Dicas práticas -->
           </div>
         </div>
 
-        <!-- ============================================== -->
-        <!-- SALA DO CONSELHO DE IAS (DEBATE E CONSENSO)    -->
-        <!-- ============================================== -->
+        <!-- Mesa de Revisão e Consenso (Conselho de IAs) -->
         <div id="councilArea" class="council-container">
           <div class="council-header">
             <div class="council-title">
-              <i data-lucide="scale"></i>
-              <span>Conselho de Inteligência Artificial: Mesa Redonda</span>
+              <i data-lucide="scale" style="width: 18px; height: 18px; color: var(--accent);"></i>
+              <span>Mesa de Revisão e Consenso</span>
             </div>
-            <button id="btnCloseCouncil" class="icon-btn-sm" title="Fechar Conselho">
-              <i data-lucide="x"></i>
+            <button id="btnCloseCouncil" class="icon-btn-sm" title="Fechar painel">
+              <i data-lucide="x" style="width: 15px; height: 15px;"></i>
             </button>
           </div>
 
-          <!-- Status / Stepper de Progresso -->
+          <!-- Status do Processo -->
           <div id="councilStatus" class="council-stepper">
-            <i data-lucide="loader-2" class="animate-spin" id="councilSpinner" style="width: 18px; height: 18px;"></i>
-            <span id="councilStatusText">Iniciando sessão do conselho...</span>
+            <i data-lucide="loader-2" class="animate-spin" id="councilSpinner" style="width: 16px; height: 16px;"></i>
+            <span id="councilStatusText">Iniciando consulta aos modelos conectados...</span>
           </div>
 
-          <!-- Grid de Propostas Individuais -->
+          <!-- Propostas Individuais -->
           <div>
-            <div class="section-label" style="margin-bottom: 0.75rem;">
-              <span>Fase 1: Propostas e Perspectivas Iniciais de Cada IA</span>
+            <div class="section-label">
+              <span>Etapa 1: Propostas independentes de cada modelo</span>
             </div>
             <div id="councilProposalsGrid" class="council-proposals-grid">
-              <!-- Cards individuais injetados dinamicamente -->
+              <!-- Propostas injetadas dinamicamente -->
             </div>
           </div>
 
-          <!-- Card de Debate Cruzado -->
+          <!-- Debate e Crítica -->
           <div id="councilDebateSection" class="debate-card" style="display: none;">
             <div class="debate-title">
-              <i data-lucide="messages-square"></i>
-              <span>Fase 2: Debate Crítico & Pontos Complementares</span>
+              <i data-lucide="message-square" style="width: 15px; height: 15px;"></i>
+              <span>Etapa 2: Confronto de abordagens e pontos complementares</span>
             </div>
             <div id="councilDebateContent" class="debate-content"></div>
           </div>
 
-          <!-- CARD DE CONSENSO FINAL (DESTAQUE MÁXIMO) -->
+          <!-- Parecer Unificado -->
           <div id="councilConsensusSection" class="consensus-card" style="display: none;">
             <div class="consensus-header">
               <div class="consensus-tag">
-                <i data-lucide="award"></i>
-                <span>🏆 SÍNTESE UNIFICADA: RESPOSTA DE CONSENSO DO CONSELHO</span>
+                <i data-lucide="check-check" style="width: 15px; height: 15px;"></i>
+                <span>Parecer unificado de consenso</span>
               </div>
-              <button id="btnCopyConsensus" class="btn-primary" style="padding: 0.4rem 1rem; font-size: 0.8rem; background: var(--council-gradient);">
-                <i data-lucide="copy"></i>
-                <span>Copiar Consenso</span>
+              <button id="btnCopyConsensus" class="btn-primary" style="padding: 0.4rem 0.85rem; font-size: 0.78rem;">
+                <i data-lucide="copy" style="width: 14px; height: 14px;"></i>
+                <span>Copiar parecer</span>
               </button>
             </div>
             <div id="councilConsensusContent" class="consensus-content"></div>
@@ -238,19 +234,19 @@
 
         </div>
 
-        <!-- Playground / Área de Teste Individual Embutida -->
+        <!-- Teste Individual -->
         <div id="playgroundArea" class="playground-section">
           <div class="playground-header">
             <div class="playground-title">
-              <i data-lucide="bot"></i>
-              <span id="singleTestTitle">Resposta em Tempo Real da IA</span>
+              <i data-lucide="terminal" style="width: 15px; height: 15px;"></i>
+              <span id="singleTestTitle">Retorno do modelo</span>
             </div>
-            <button id="btnClosePlayground" class="icon-btn-sm" title="Fechar teste">
-              <i data-lucide="x"></i>
+            <button id="btnClosePlayground" class="icon-btn-sm" title="Fechar retorno">
+              <i data-lucide="x" style="width: 15px; height: 15px;"></i>
             </button>
           </div>
           <div id="playgroundOutput" class="playground-response">
-            Aguardando execução do teste...
+            Aguardando resposta...
           </div>
         </div>
 
@@ -260,100 +256,91 @@
 
   </main>
 
-  <!-- Modal da Central de Conexões de IA -->
+  <!-- Modal de Configurações dos Modelos -->
   <div id="settingsModal" class="modal-backdrop">
     <div class="modal-card">
       <div class="modal-header">
-        <h3 class="modal-title">Central de Conexões de IA</h3>
+        <h3 class="modal-title">Configurações de modelos</h3>
         <button id="btnCloseSettings" class="icon-btn-sm">
-          <i data-lucide="x"></i>
+          <i data-lucide="x" style="width: 16px; height: 16px;"></i>
         </button>
       </div>
 
       <p class="modal-help">
-        Conecte as IAs de sua preferência para forjar prompts com qualquer modelo. <br>
-        <b style="color: #fbbf24;">Dica:</b> Conecte pelo menos <b>2 IAs</b> (ex: Gemini e Groq, ambas gratuitas!) para liberar o <b>Conselho de IAs (Debate e Consenso Conjunto)</b>!
+        Cadastre as chaves dos modelos que você pretende usar. Para habilitar a Mesa de Revisão, conecte ao menos dois provedores (o Gemini e o Groq contam com planos gratuitos).
       </p>
 
       <!-- Abas dos Provedores -->
       <div class="provider-tabs">
-        <button class="provider-tab-btn active" data-prov="gemini">
-          <span style="color: #38bdf8;">●</span> Google Gemini
-        </button>
-        <button class="provider-tab-btn" data-prov="groq">
-          <span style="color: #f97316;">●</span> Groq / DeepSeek
-        </button>
-        <button class="provider-tab-btn" data-prov="openai">
-          <span style="color: #10b981;">●</span> OpenAI
-        </button>
-        <button class="provider-tab-btn" data-prov="claude">
-          <span style="color: #d97706;">●</span> Claude
-        </button>
+        <button class="provider-tab-btn active" data-prov="gemini">Google Gemini</button>
+        <button class="provider-tab-btn" data-prov="groq">Groq</button>
+        <button class="provider-tab-btn" data-prov="openai">OpenAI</button>
+        <button class="provider-tab-btn" data-prov="claude">Claude</button>
       </div>
 
-      <!-- Painel Dinâmico do Provedor Selecionado -->
+      <!-- Configuração da Chave -->
       <div id="providerConfigBody">
         <div class="section-label">
-          <span id="provModalLabel">Chave de API do Google Gemini</span>
-          <span id="provModalStatus" style="font-size: 0.72rem; color: #10b981;">Conectado 🟢</span>
+          <span id="provModalLabel">Chave do Google Gemini</span>
+          <span id="provModalStatus" style="font-size: 0.72rem; color: var(--sage);">Conectado</span>
         </div>
-        <input type="password" id="provModalInput" class="modal-input" placeholder="Cole sua chave aqui...">
+        <input type="password" id="provModalInput" class="modal-input" placeholder="Insira a chave de API...">
         
         <div class="modal-help" id="provModalHelp">
-          Obtenha sua chave gratuita em: <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a>
+          Acesse para obter uma chave: <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a>
         </div>
 
-        <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1rem;">
-          <button id="btnClearProvKey" class="btn-ghost" style="color: var(--danger);">Remover Chave</button>
-          <button id="btnSaveProvKey" class="btn-primary">Salvar Chave</button>
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;">
+          <button id="btnClearProvKey" class="btn-ghost" style="color: var(--crimson);">Remover</button>
+          <button id="btnSaveProvKey" class="btn-primary">Salvar</button>
         </div>
       </div>
 
     </div>
   </div>
 
-  <!-- Modal do Guia de Engenharia de Prompt -->
+  <!-- Modal de Princípios -->
   <div id="guideModal" class="modal-backdrop">
-    <div class="modal-card" style="max-width: 650px;">
+    <div class="modal-card" style="max-width: 620px;">
       <div class="modal-header">
         <h3 class="modal-title">Como estruturar um prompt eficaz</h3>
         <button id="btnCloseGuide" class="icon-btn-sm">
-          <i data-lucide="x"></i>
+          <i data-lucide="x" style="width: 16px; height: 16px;"></i>
         </button>
       </div>
-      <div style="display: flex; flex-direction: column; gap: 1rem; font-size: 0.88rem; color: var(--text-secondary); line-height: 1.6; max-height: 480px; overflow-y: auto; padding-right: 0.5rem;">
+      <div style="display: flex; flex-direction: column; gap: 0.85rem; font-size: 0.85rem; color: var(--ink-secondary); line-height: 1.6; max-height: 480px; overflow-y: auto; padding-right: 0.5rem;">
         <p>Modelos de linguagem respondem pelo que é estatisticamente mais comum. Sem parâmetros claros, eles entregam respostas médias, genéricas e cheias de clichês. Para obter resultados úteis, forneça cinco elementos:</p>
         
-        <div style="background: rgba(255,255,255,0.03); padding: 0.75rem 1rem; border-radius: 10px; border-left: 3px solid var(--accent-purple);">
-          <b style="color: white;">1. Papel prático:</b> Indique a área de especialidade ou o ponto de vista esperado (exemplo: desenvolvedor sênior em TypeScript). Isso orienta o vocabulário e o nível técnico.
+        <div style="background: var(--canvas); padding: 0.75rem 1rem; border-radius: 4px; border-left: 2px solid var(--border-strong);">
+          <b style="color: var(--ink-primary);">1. Papel prático:</b> Indique a área de especialidade ou o ponto de vista esperado (exemplo: desenvolvedor sênior em TypeScript). Isso orienta o vocabulário e o nível técnico.
         </div>
 
-        <div style="background: rgba(255,255,255,0.03); padding: 0.75rem 1rem; border-radius: 10px; border-left: 3px solid var(--accent-blue);">
-          <b style="color: white;">2. Contexto real:</b> Descreva a situação, o público final e as restrições do problema. A IA não deduz o que não foi dito.
+        <div style="background: var(--canvas); padding: 0.75rem 1rem; border-radius: 4px; border-left: 2px solid var(--border-strong);">
+          <b style="color: var(--ink-primary);">2. Contexto real:</b> Descreva a situação, o público final e as restrições do problema. A IA não deduz o que não foi dito.
         </div>
 
-        <div style="background: rgba(255,255,255,0.03); padding: 0.75rem 1rem; border-radius: 10px; border-left: 3px solid var(--accent-cyan);">
-          <b style="color: white;">3. Roteiro por etapas:</b> Divida a tarefa na ordem lógica em que você quer que ela seja resolvida.
+        <div style="background: var(--canvas); padding: 0.75rem 1rem; border-radius: 4px; border-left: 2px solid var(--border-strong);">
+          <b style="color: var(--ink-primary);">3. Roteiro por etapas:</b> Divida a tarefa na ordem lógica em que você quer que ela seja resolvida.
         </div>
 
-        <div style="background: rgba(255,255,255,0.03); padding: 0.75rem 1rem; border-radius: 10px; border-left: 3px solid #f59e0b;">
-          <b style="color: white;">4. O que evitar:</b> Aponte o que não deve entrar no texto (evitar introduções óbvias, jargões vagos ou fórmulas prontas de chatbot).
+        <div style="background: var(--canvas); padding: 0.75rem 1rem; border-radius: 4px; border-left: 2px solid var(--border-strong);">
+          <b style="color: var(--ink-primary);">4. O que evitar:</b> Aponte o que não deve entrar no texto (evitar introduções óbvias, jargões vagos ou fórmulas prontas de chatbot).
         </div>
 
-        <div style="background: rgba(255,255,255,0.03); padding: 0.75rem 1rem; border-radius: 10px; border-left: 3px solid var(--success);">
-          <b style="color: white;">5. Formato de entrega:</b> Defina se a resposta precisa vir em tabela, código comentado, checklist ou parágrafos corridos.
+        <div style="background: var(--canvas); padding: 0.75rem 1rem; border-radius: 4px; border-left: 2px solid var(--border-strong);">
+          <b style="color: var(--ink-primary);">5. Formato de entrega:</b> Defina se a resposta precisa vir em tabela, código comentado, checklist ou parágrafos corridos.
         </div>
       </div>
-      <div style="margin-top: 1.5rem; text-align: right;">
-        <button id="btnGotItGuide" class="btn-primary" style="padding: 0.5rem 1.25rem;">Entendido</button>
+      <div style="margin-top: 1.25rem; text-align: right;">
+        <button id="btnGotItGuide" class="btn-primary" style="padding: 0.45rem 1.15rem;">Entendido</button>
       </div>
     </div>
   </div>
 
-  <!-- Toast Notification -->
+  <!-- Notificação Toast -->
   <div id="toast" class="toast">
-    <i data-lucide="check-circle" id="toastIcon"></i>
-    <span id="toastMessage">Mensagem de aviso</span>
+    <i data-lucide="check" id="toastIcon" style="width: 15px; height: 15px;"></i>
+    <span id="toastMessage">Mensagem</span>
   </div>
 
   <!-- Scripts -->

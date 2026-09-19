@@ -144,7 +144,7 @@ function initTones() {
     Object.values(PROMPT_TONES).forEach(tone => {
         const opt = document.createElement('option');
         opt.value = tone.id;
-        opt.textContent = `${tone.name} — ${tone.description}`;
+        opt.textContent = `${tone.name}: ${tone.description}`;
         dom.toneSelect.appendChild(opt);
     });
     dom.toneSelect.value = state.selectedTone;
@@ -168,33 +168,33 @@ function initForgingProviderSelect() {
 function updateActiveEngineBadge() {
     const provId = state.selectedForgingProvider;
     if (provId === 'offline') {
-        dom.activeEngineBadge.textContent = 'Motor Offline ⚡';
-        dom.activeEngineBadge.style.color = '#94a3b8';
+        dom.activeEngineBadge.textContent = 'Motor estrutural';
+        dom.activeEngineBadge.style.color = 'var(--ink-muted)';
         return;
     }
 
     const prov = AI_PROVIDERS[provId];
     const hasKey = !!state.apiKeys[provId];
-    dom.activeEngineBadge.textContent = `${prov.name} ${hasKey ? '🟢' : '⚪'}`;
-    dom.activeEngineBadge.style.color = hasKey ? '#10b981' : '#94a3b8';
+    dom.activeEngineBadge.textContent = `${prov.name} ${hasKey ? '(conectado)' : '(sem chave)'}`;
+    dom.activeEngineBadge.style.color = hasKey ? 'var(--sage)' : 'var(--ink-muted)';
 }
 
 // Atualiza contador de conexões no cabeçalho
 function updateConnectionsHeader() {
     const connectedCount = Object.keys(state.apiKeys).filter(p => !!state.apiKeys[p]).length;
-    dom.connectionsStatusText.textContent = `Central de IAs (${connectedCount}/4 Conectadas)`;
+    dom.connectionsStatusText.textContent = `Modelos (${connectedCount}/4 conectados)`;
     
     if (connectedCount >= 2) {
-        dom.btnOpenSettings.style.borderColor = 'rgba(245, 158, 11, 0.4)';
-        dom.btnOpenSettings.style.color = '#fcd34d';
+        dom.btnOpenSettings.style.borderColor = 'var(--border-strong)';
+        dom.btnOpenSettings.style.color = 'var(--accent)';
         dom.btnCallCouncil.disabled = false;
-        dom.btnCallCouncil.title = `Convocar Conselho de IAs (${connectedCount} IAs prontas)`;
+        dom.btnCallCouncil.title = `Mesa do conselho (${connectedCount} modelos conectados)`;
     } else if (connectedCount === 1) {
-        dom.btnOpenSettings.style.borderColor = 'rgba(16, 185, 129, 0.4)';
-        dom.btnOpenSettings.style.color = '#6ee7b7';
+        dom.btnOpenSettings.style.borderColor = 'var(--border)';
+        dom.btnOpenSettings.style.color = 'var(--sage)';
     } else {
-        dom.btnOpenSettings.style.borderColor = 'var(--border-color)';
-        dom.btnOpenSettings.style.color = 'var(--text-secondary)';
+        dom.btnOpenSettings.style.borderColor = 'var(--border)';
+        dom.btnOpenSettings.style.color = 'var(--ink-secondary)';
     }
 }
 
@@ -311,20 +311,19 @@ function renderProviderModalTab() {
     const prov = AI_PROVIDERS[state.activeModalProvider];
     const key = state.apiKeys[prov.id] || '';
     
-    dom.provModalLabel.textContent = `Chave de API do ${prov.name}`;
+    dom.provModalLabel.textContent = `Chave do ${prov.name}`;
     dom.provModalInput.value = key;
     
     if (key) {
-        dom.provModalStatus.textContent = 'Conectado 🟢';
-        dom.provModalStatus.style.color = '#10b981';
+        dom.provModalStatus.textContent = 'Conectado';
+        dom.provModalStatus.style.color = 'var(--sage)';
     } else {
-        dom.provModalStatus.textContent = 'Não configurado ⚪';
-        dom.provModalStatus.style.color = '#94a3b8';
+        dom.provModalStatus.textContent = 'Não configurado';
+        dom.provModalStatus.style.color = 'var(--ink-muted)';
     }
 
     dom.provModalHelp.innerHTML = `
-        👉 <b>Obtenha sua chave gratuita/oficial:</b> <br>
-        <a href="${prov.docsUrl}" target="_blank" rel="noopener noreferrer">${prov.docsUrl}</a>
+        Acesse para obter uma chave: <a href="${prov.docsUrl}" target="_blank" rel="noopener noreferrer">${prov.docsUrl}</a>
     `;
 }
 
@@ -740,10 +739,10 @@ function setGeneratingState(isGen) {
     state.isForging = isGen;
     dom.btnForge.disabled = isGen;
     if (isGen) {
-        dom.forgeBtnText.textContent = 'Forjando com IA...';
+        dom.forgeBtnText.textContent = 'Estruturando...';
         dom.forgeIcon.classList.add('animate-spin');
     } else {
-        dom.forgeBtnText.textContent = 'Forjar Prompt Mestre';
+        dom.forgeBtnText.textContent = 'Estruturar prompt';
         dom.forgeIcon.classList.remove('animate-spin');
     }
 }
