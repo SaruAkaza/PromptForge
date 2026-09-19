@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PromptForge - Gerador & Otimizador de Prompts com IA</title>
+  <title>PromptForge - Gerador de Prompts & Conselho de IAs</title>
   <link rel="icon" type="image/x-icon" href="assets/icon.ico">
   <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
   <link rel="stylesheet" href="styles.css">
@@ -17,12 +17,12 @@
     <div class="brand">
       <img src="assets/icon.svg" alt="PromptForge" class="brand-icon">
       <h1 class="brand-title">PromptForge</h1>
-      <span class="brand-badge">Desktop Edition</span>
+      <span class="brand-badge">Multi-AI Edition</span>
     </div>
     <div class="header-actions">
-      <button id="btnOpenSettings" class="btn-ghost" title="Configurar chave do Google Gemini">
-        <i data-lucide="key"></i>
-        <span id="apiKeyStatusText">Configurar Gemini API</span>
+      <button id="btnOpenSettings" class="btn-ghost" title="Configurar chaves dos provedores de IA">
+        <i data-lucide="cpu"></i>
+        <span id="connectionsStatusText">Central de IAs (0/4 Conectadas)</span>
       </button>
       <button id="btnOpenGuide" class="btn-ghost" title="Dicas de Engenharia de Prompt">
         <i data-lucide="book-open"></i>
@@ -46,7 +46,7 @@
             <textarea 
               id="rawIdeaInput" 
               class="prompt-textarea" 
-              placeholder="Ex: quero aprender SQL para análise de dados do zero..."
+              placeholder="Ex: crie uma estratégia de marketing para lançamento de infoproduto..."
             ></textarea>
           </div>
           <div class="quick-examples">
@@ -55,6 +55,21 @@
             <span class="example-pill" data-text="Escreva uma função Python para ler dados de um CSV e gerar gráficos" data-cat="coding" data-tone="technical">💡 Script Python</span>
             <span class="example-pill" data-text="Plano de transição de carreira para a área de tecnologia em 6 meses" data-cat="business" data-tone="concise">💡 Plano de Carreira</span>
           </div>
+        </div>
+
+        <!-- Seletor do Motor de IA Gerador -->
+        <div>
+          <div class="section-label">
+            <span>Motor de IA Forjador</span>
+            <span id="activeEngineBadge" style="font-size: 0.7rem; color: #38bdf8; font-weight: 600;">Google Gemini</span>
+          </div>
+          <select id="forgingProviderSelect" class="custom-select">
+            <option value="gemini">Google Gemini 2.5 Flash (Recomendado)</option>
+            <option value="groq">Groq — DeepSeek R1 / Llama 3.3 (Ultra Rápido)</option>
+            <option value="openai">OpenAI — GPT-4o-mini</option>
+            <option value="claude">Anthropic — Claude 3.5 Haiku</option>
+            <option value="offline">Motor Estrutural Local (Offline)</option>
+          </select>
         </div>
 
         <!-- Categoria -->
@@ -72,7 +87,7 @@
           <div class="section-label">
             <span>Tom & Estilo de Resposta</span>
           </div>
-          <select id="toneSelect" class="tone-select">
+          <select id="toneSelect" class="custom-select">
             <!-- Injetado dinamicamente via JS -->
           </select>
         </div>
@@ -96,7 +111,7 @@
       </div>
     </section>
 
-    <!-- Painel Direito: Prompt Gerado, Raio-X & Testador -->
+    <!-- Painel Direito: Prompt Gerado, Raio-X & Testador & Conselho -->
     <section class="glass-panel result-panel">
       
       <!-- Estado Inicial (Vazio) -->
@@ -104,7 +119,7 @@
         <i data-lucide="anvil" class="empty-icon"></i>
         <h3 class="empty-title">Nenhum prompt forjado ainda</h3>
         <p class="empty-desc">
-          Digite qualquer frase ou ideia simples no painel à esquerda e clique em <b>Forjar Prompt Mestre</b>. Nós adicionaremos contexto, persona, instruções e restrições automaticamente.
+          Digite qualquer frase simples à esquerda e clique em <b>Forjar Prompt Mestre</b>. Você poderá testar individualmente ou convocar o <b>Conselho de IAs</b> para um debate e consenso conjunto!
         </p>
       </div>
 
@@ -118,6 +133,7 @@
             <div style="display: flex; gap: 0.5rem; margin-top: 0.35rem;">
               <span id="badgeCategory" class="brand-badge" style="background: rgba(59, 130, 246, 0.2); color: #93c5fd; border-color: rgba(59, 130, 246, 0.4);">Categoria</span>
               <span id="badgeTone" class="brand-badge" style="background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border-color: rgba(16, 185, 129, 0.4);">Tom</span>
+              <span id="badgeEngineUsed" class="brand-badge" style="background: rgba(139, 92, 246, 0.2); color: #c4b5fd; border-color: rgba(139, 92, 246, 0.4);">Motor: Gemini</span>
             </div>
           </div>
           <div class="result-actions">
@@ -125,9 +141,13 @@
               <i data-lucide="star" id="favStarIcon"></i>
               <span>Favoritar</span>
             </button>
-            <button id="btnTestPrompt" class="btn-ghost" style="border-color: rgba(99, 102, 241, 0.4); color: #a5b4fc;" title="Ver a resposta da IA para esse prompt">
+            <button id="btnTestSinglePrompt" class="btn-ghost" style="border-color: rgba(99, 102, 241, 0.4); color: #a5b4fc;" title="Testar com a IA ativa">
               <i data-lucide="play"></i>
-              <span>Testar Agora</span>
+              <span>Teste Individual</span>
+            </button>
+            <button id="btnCallCouncil" class="btn-council" title="Debate entre múltiplos modelos e resposta de consenso">
+              <i data-lucide="users"></i>
+              <span>Convocar Conselho de IAs 🏛️</span>
             </button>
             <button id="btnCopyPrompt" class="btn-primary" style="padding: 0.5rem 1.25rem; font-size: 0.88rem;">
               <i data-lucide="copy"></i>
@@ -143,7 +163,7 @@
               <i data-lucide="terminal" style="width: 15px; height: 15px;"></i>
               <span>Prompt Estruturado (Pronto para Colar)</span>
             </div>
-            <span style="font-size: 0.75rem; color: var(--text-muted);">Compatível com ChatGPT, Claude, Gemini & DeepSeek</span>
+            <span style="font-size: 0.75rem; color: var(--text-muted);">Compatível com qualquer modelo</span>
           </div>
           <pre id="promptTextDisplay" class="prompt-content"></pre>
         </div>
@@ -162,19 +182,75 @@
           </div>
         </div>
 
-        <!-- Playground / Área de Teste Embutida -->
+        <!-- ============================================== -->
+        <!-- SALA DO CONSELHO DE IAS (DEBATE E CONSENSO)    -->
+        <!-- ============================================== -->
+        <div id="councilArea" class="council-container">
+          <div class="council-header">
+            <div class="council-title">
+              <i data-lucide="scale"></i>
+              <span>Conselho de Inteligência Artificial: Mesa Redonda</span>
+            </div>
+            <button id="btnCloseCouncil" class="icon-btn-sm" title="Fechar Conselho">
+              <i data-lucide="x"></i>
+            </button>
+          </div>
+
+          <!-- Status / Stepper de Progresso -->
+          <div id="councilStatus" class="council-stepper">
+            <i data-lucide="loader-2" class="animate-spin" id="councilSpinner" style="width: 18px; height: 18px;"></i>
+            <span id="councilStatusText">Iniciando sessão do conselho...</span>
+          </div>
+
+          <!-- Grid de Propostas Individuais -->
+          <div>
+            <div class="section-label" style="margin-bottom: 0.75rem;">
+              <span>Fase 1: Propostas e Perspectivas Iniciais de Cada IA</span>
+            </div>
+            <div id="councilProposalsGrid" class="council-proposals-grid">
+              <!-- Cards individuais injetados dinamicamente -->
+            </div>
+          </div>
+
+          <!-- Card de Debate Cruzado -->
+          <div id="councilDebateSection" class="debate-card" style="display: none;">
+            <div class="debate-title">
+              <i data-lucide="messages-square"></i>
+              <span>Fase 2: Debate Crítico & Pontos Complementares</span>
+            </div>
+            <div id="councilDebateContent" class="debate-content"></div>
+          </div>
+
+          <!-- CARD DE CONSENSO FINAL (DESTAQUE MÁXIMO) -->
+          <div id="councilConsensusSection" class="consensus-card" style="display: none;">
+            <div class="consensus-header">
+              <div class="consensus-tag">
+                <i data-lucide="award"></i>
+                <span>🏆 SÍNTESE UNIFICADA: RESPOSTA DE CONSENSO DO CONSELHO</span>
+              </div>
+              <button id="btnCopyConsensus" class="btn-primary" style="padding: 0.4rem 1rem; font-size: 0.8rem; background: var(--council-gradient);">
+                <i data-lucide="copy"></i>
+                <span>Copiar Consenso</span>
+              </button>
+            </div>
+            <div id="councilConsensusContent" class="consensus-content"></div>
+          </div>
+
+        </div>
+
+        <!-- Playground / Área de Teste Individual Embutida -->
         <div id="playgroundArea" class="playground-section">
           <div class="playground-header">
             <div class="playground-title">
               <i data-lucide="bot"></i>
-              <span>Resposta em Tempo Real da IA (Google Gemini)</span>
+              <span id="singleTestTitle">Resposta em Tempo Real da IA</span>
             </div>
             <button id="btnClosePlayground" class="icon-btn-sm" title="Fechar teste">
               <i data-lucide="x"></i>
             </button>
           </div>
           <div id="playgroundOutput" class="playground-response">
-            Carregando resposta da IA...
+            Aguardando execução do teste...
           </div>
         </div>
 
@@ -184,31 +260,55 @@
 
   </main>
 
-  <!-- Modal de Configurações da API -->
+  <!-- Modal da Central de Conexões de IA -->
   <div id="settingsModal" class="modal-backdrop">
     <div class="modal-card">
       <div class="modal-header">
-        <h3 class="modal-title">Configurar Gemini API</h3>
+        <h3 class="modal-title">Central de Conexões de IA</h3>
         <button id="btnCloseSettings" class="icon-btn-sm">
           <i data-lucide="x"></i>
         </button>
       </div>
+
       <p class="modal-help">
-        Para gerar expansões ultra personalizadas e testar os prompts em tempo real, você pode inserir sua chave gratuita do <b>Google AI Studio</b>. Ela é salva exclusivamente no seu computador (localStorage).
+        Conecte as IAs de sua preferência para forjar prompts com qualquer modelo. <br>
+        <b style="color: #fbbf24;">Dica:</b> Conecte pelo menos <b>2 IAs</b> (ex: Gemini e Groq, ambas gratuitas!) para liberar o <b>Conselho de IAs (Debate e Consenso Conjunto)</b>!
       </p>
-      
-      <label class="section-label">Chave de API (Gemini API Key)</label>
-      <input type="password" id="apiKeyInput" class="modal-input" placeholder="AIzaSy...">
-      
-      <div class="modal-help" style="margin-bottom: 1.5rem;">
-        👉 <b>Não tem uma chave ainda?</b> Obtenha em menos de 1 minuto gratuitamente: <br>
-        <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">Clique aqui para abrir o Google AI Studio</a> (basta logar com sua conta Google e clicar em "Create API Key").
+
+      <!-- Abas dos Provedores -->
+      <div class="provider-tabs">
+        <button class="provider-tab-btn active" data-prov="gemini">
+          <span style="color: #38bdf8;">●</span> Google Gemini
+        </button>
+        <button class="provider-tab-btn" data-prov="groq">
+          <span style="color: #f97316;">●</span> Groq / DeepSeek
+        </button>
+        <button class="provider-tab-btn" data-prov="openai">
+          <span style="color: #10b981;">●</span> OpenAI
+        </button>
+        <button class="provider-tab-btn" data-prov="claude">
+          <span style="color: #d97706;">●</span> Claude
+        </button>
       </div>
 
-      <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
-        <button id="btnClearApiKey" class="btn-ghost" style="color: var(--danger);">Remover Chave</button>
-        <button id="btnSaveApiKey" class="btn-primary">Salvar Chave</button>
+      <!-- Painel Dinâmico do Provedor Selecionado -->
+      <div id="providerConfigBody">
+        <div class="section-label">
+          <span id="provModalLabel">Chave de API do Google Gemini</span>
+          <span id="provModalStatus" style="font-size: 0.72rem; color: #10b981;">Conectado 🟢</span>
+        </div>
+        <input type="password" id="provModalInput" class="modal-input" placeholder="Cole sua chave aqui...">
+        
+        <div class="modal-help" id="provModalHelp">
+          Obtenha sua chave gratuita em: <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1rem;">
+          <button id="btnClearProvKey" class="btn-ghost" style="color: var(--danger);">Remover Chave</button>
+          <button id="btnSaveProvKey" class="btn-primary">Salvar Chave</button>
+        </div>
       </div>
+
     </div>
   </div>
 

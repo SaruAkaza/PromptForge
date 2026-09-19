@@ -1,7 +1,50 @@
 /**
- * PromptForge - Engine de Meta-Prompting & Engenharia de Prompts
- * Transforma frases simples em prompts profissionais contextualizados e gera o Raio-X Educativo.
+ * PromptForge - Engine Multi-Motor de Meta-Prompting & Conselho de IAs
+ * Suporta Google Gemini, Groq (DeepSeek/Llama), OpenAI e Anthropic Claude.
  */
+
+const AI_PROVIDERS = {
+    gemini: {
+        id: 'gemini',
+        name: 'Google Gemini',
+        model: 'gemini-2.5-flash',
+        fallbackModel: 'gemini-1.5-flash',
+        badgeColor: '#38bdf8',
+        tag: 'Grátis & Veloz',
+        keyStorageKey: 'promptforge_key_gemini',
+        docsUrl: 'https://aistudio.google.com/app/apikey'
+    },
+    groq: {
+        id: 'groq',
+        name: 'Groq (DeepSeek / Llama)',
+        model: 'llama-3.3-70b-versatile',
+        fallbackModel: 'deepseek-r1-distill-llama-70b',
+        badgeColor: '#f97316',
+        tag: 'Ultra Rápido & Grátis',
+        keyStorageKey: 'promptforge_key_groq',
+        docsUrl: 'https://console.groq.com/keys'
+    },
+    openai: {
+        id: 'openai',
+        name: 'OpenAI ChatGPT',
+        model: 'gpt-4o-mini',
+        fallbackModel: 'gpt-4o',
+        badgeColor: '#10b981',
+        tag: 'Padrão da Indústria',
+        keyStorageKey: 'promptforge_key_openai',
+        docsUrl: 'https://platform.openai.com/api-keys'
+    },
+    claude: {
+        id: 'claude',
+        name: 'Anthropic Claude',
+        model: 'claude-3-5-haiku-20241022',
+        fallbackModel: 'claude-3-5-sonnet-20241022',
+        badgeColor: '#d97706',
+        tag: 'Especialista & Refinado',
+        keyStorageKey: 'promptforge_key_claude',
+        docsUrl: 'https://console.anthropic.com/settings/keys'
+    }
+};
 
 const PROMPT_CATEGORIES = {
     coding: {
@@ -50,7 +93,7 @@ const PROMPT_TONES = {
     technical: {
         id: 'technical',
         name: 'Especialista Técnico',
-        description: 'Riguroso, técnico, aprofundado e sem superficialidades'
+        description: 'Rigoroso, técnico, aprofundado e sem superficialidades'
     },
     didactic: {
         id: 'didactic',
@@ -70,7 +113,7 @@ const PROMPT_TONES = {
 };
 
 /**
- * Cria a instrução do Meta-Prompt para a API do Gemini gerar o prompt expandido + análise educativa em JSON.
+ * Monta as instruções do Meta-Prompting
  */
 function buildMetaPromptRequest(rawIdea, categoryKey, toneKey) {
     const category = PROMPT_CATEGORIES[categoryKey] || PROMPT_CATEGORIES.coding;
@@ -115,8 +158,309 @@ Responda ESTRITAMENTE em formato JSON com o seguinte schema (não adicione bloco
 }
 
 /**
- * Gerador de fallback quando o usuário ainda não colocou uma chave de API,
- * garantindo que o aplicativo funcione e seja testável imediatamente de forma offline!
+ * Cliente Universal para Chamadas de API aos diferentes provedores
+ */
+async function callUniversalAI(providerId, apiKey, systemPrompt, userMessage, jsonMode = false) {
+    if (providerId === 'gemini') {
+        return callGemini(apiKey, systemPrompt, userMessage, jsonMode);
+    } else if (providerId === 'groq') {
+        return callGroq(apiKey, systemPrompt, userMessage, jsonMode);
+    } else if (providerId === 'openai') {
+        return callOpenAI(apiKey, systemPrompt, userMessage, jsonMode);
+    } else if (providerId === 'claude') {
+        return callClaude(apiKey, systemPrompt, userMessage, jsonMode);
+    } else {
+        throw new Error(`Provedor desconhecido: ${providerId}`);
+    }
+}
+
+// 1. Google Gemini API
+async function callGemini(apiKey, systemPrompt, userMessage, jsonMode) {
+    const models = ['gemini-2.5-flash', 'gemini-1.5-flash'];
+    let lastError = null;
+
+    for (const model of models) {
+        try {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+            const body = {
+                contents: [{ parts: [{ text: (systemPrompt ? `${systemPrompt}\n\n` : '') + userMessage }] }],
+                generationConfig: {
+                    temperature: 0.7,
+                    maxOutputTokens: 2500
+                }
+            };
+            if (jsonMode) {
+                body.generationConfig.responseMimeType = 'application/json';
+            }
+
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error?.message || `HTTP ${res.status}`);
+            }
+
+            const data = await res.json();
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (!text) throw new Error('Resposta vazia da API do Gemini');
+            return text;
+        } catch (err) {
+            lastError = err;
+        }
+    }
+    throw lastError;
+}
+
+// 2. Groq Cloud API (OpenAI Compatible)
+async function callGroq(apiKey, systemPrompt, userMessage, jsonMode) {
+    const models = ['llama-3.3-70b-versatile', 'deepseek-r1-distill-llama-70b'];
+    let lastError = null;
+
+    for (const model of models) {
+        try {
+            const messages = [];
+            if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
+            messages.push({ role: 'user', content: userMessage });
+
+            const body = {
+                model: model,
+                messages: messages,
+                temperature: 0.7,
+                max_tokens: 2500
+            };
+            if (jsonMode) {
+                body.response_format = { type: 'json_object' };
+            }
+
+            const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify(body)
+            });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error?.message || `HTTP ${res.status}`);
+            }
+
+            const data = await res.json();
+            const text = data.choices?.[0]?.message?.content;
+            if (!text) throw new Error('Resposta vazia da API do Groq');
+            return text;
+        } catch (err) {
+            lastError = err;
+        }
+    }
+    throw lastError;
+}
+
+// 3. OpenAI API
+async function callOpenAI(apiKey, systemPrompt, userMessage, jsonMode) {
+    const messages = [];
+    if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
+    messages.push({ role: 'user', content: userMessage });
+
+    const body = {
+        model: 'gpt-4o-mini',
+        messages: messages,
+        temperature: 0.7,
+        max_tokens: 2500
+    };
+    if (jsonMode) {
+        body.response_format = { type: 'json_object' };
+    }
+
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error?.message || `HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    const text = data.choices?.[0]?.message?.content;
+    if (!text) throw new Error('Resposta vazia da OpenAI');
+    return text;
+}
+
+// 4. Anthropic Claude API
+async function callClaude(apiKey, systemPrompt, userMessage, jsonMode) {
+    const body = {
+        model: 'claude-3-5-haiku-20241022',
+        max_tokens: 2500,
+        messages: [{ role: 'user', content: (jsonMode ? `${userMessage}\nIMPORTANTE: Responda unicamente com JSON válido.` : userMessage) }]
+    };
+    if (systemPrompt) {
+        body.system = systemPrompt;
+    }
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error?.message || `HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    const text = data.content?.[0]?.text;
+    if (!text) throw new Error('Resposta vazia da Anthropic');
+    return text;
+}
+
+/**
+ * Forja o prompt mestre usando qualquer motor configurado
+ */
+async function forgePromptWithAI(providerId, apiKey, rawIdea, category, tone) {
+    const instruction = buildMetaPromptRequest(rawIdea, category, tone);
+    const rawResult = await callUniversalAI(providerId, apiKey, '', instruction, true);
+    
+    // Limpeza de blocos markdown de JSON
+    const cleanJson = rawResult.replace(/```json/g, '').replace(/```/g, '').trim();
+    return JSON.parse(cleanJson);
+}
+
+/**
+ * Conselho de IAs (Debate e Consenso Conjunto)
+ * Executa as 3 fases: Propostas Individuais -> Debate & Crítica Cruzada -> Síntese de Consenso Final
+ */
+async function runAiCouncil({ promptText, connectedProviders, apiKeys, onProgress }) {
+    if (connectedProviders.length < 2) {
+        throw new Error('O Conselho de IAs exige pelo menos 2 motores de IA conectados.');
+    }
+
+    // FASE 1: Propostas Individuais
+    if (onProgress) onProgress({ phase: 1, text: 'Fase 1/3: Coletando propostas iniciais de cada IA conectada...' });
+    
+    const individualPromises = connectedProviders.map(async (provId) => {
+        const prov = AI_PROVIDERS[provId];
+        try {
+            const resp = await callUniversalAI(
+                provId, 
+                apiKeys[provId], 
+                'Você é um membro sênior de um Conselho Consultivo de Inteligência Artificial. Forneça uma resposta sólida, fundamentada e estruturada para a demanda a seguir.',
+                promptText, 
+                false
+            );
+            return { providerId: provId, providerName: prov.name, content: resp, error: null };
+        } catch (err) {
+            return { providerId: provId, providerName: prov.name, content: null, error: err.message };
+        }
+    });
+
+    const individualResults = await Promise.all(individualPromises);
+    const validProposals = individualResults.filter(r => !r.error && r.content);
+
+    if (validProposals.length === 0) {
+        throw new Error('Nenhuma das IAs conectadas conseguiu responder. Verifique as chaves de API.');
+    }
+
+    // FASE 2: Debate e Crítica Cruzada
+    if (onProgress) onProgress({ phase: 2, text: 'Fase 2/3: As IAs estão debatendo os pontos fortes e contrapontos entre si...' });
+
+    const debateSummaries = validProposals.map(p => `[Proposta de ${p.providerName}]:\n${p.content}`).join('\n\n---\n\n');
+
+    const debatePrompt = `
+Você está participando da Fase de Debate do Conselho de IA. Abaixo estão as propostas apresentadas por diferentes IAs para o seguinte prompt:
+
+"""
+${promptText}
+"""
+
+PROPOSTAS APRESENTADAS:
+${debateSummaries}
+
+SUA TAREFA NO DEBATE:
+1. Analise criticamente as propostas apresentadas por cada IA.
+2. Destaque quais pontos foram brilhantes e quais foram pontos cegos ou omitidos em cada uma.
+3. Aponte convergências essenciais e divergências que enriquecem o resultado final.
+Seja conciso, analítico e construtivo.
+`.trim();
+
+    // Escolhe a primeira IA válida para conduzir a rodada de debate
+    const debaterProvider = validProposals[0].providerId;
+    let debateResult = '';
+    try {
+        debateResult = await callUniversalAI(
+            debaterProvider, 
+            apiKeys[debaterProvider], 
+            'Atue como o Mediador de Debate do Conselho de Inteligência Artificial.',
+            debatePrompt, 
+            false
+        );
+    } catch (e) {
+        debateResult = 'O debate considerou as perspectivas complementares de cada modelo, unificando precisão técnica e clareza prática.';
+    }
+
+    // FASE 3: Síntese e Consenso Final do Conselho
+    if (onProgress) onProgress({ phase: 3, text: 'Fase 3/3: Sintetizando a Resposta de Consenso Final unificada...' });
+
+    // Escolhe a melhor IA disponível para sintetizar (preferência por Gemini ou OpenAI)
+    const synthesizerProvider = validProposals.find(p => p.providerId === 'gemini' || p.providerId === 'openai') 
+        ? (validProposals.find(p => p.providerId === 'gemini' || p.providerId === 'openai').providerId)
+        : validProposals[0].providerId;
+
+    const consensusPrompt = `
+Você é o Presidente Relator do Conselho de Inteligência Artificial.
+Sua missão máxima é gerar a RESPOSTA DE CONSENSO FINAL definitiva e harmonizada.
+
+PROMPT ORIGINAL:
+"""
+${promptText}
+"""
+
+CONTRIBUIÇÕES DAS IAS PARTICIPANTES:
+${debateSummaries}
+
+NOTAS DO DEBATE:
+${debateResult}
+
+DIRETRIZES PARA O CONSENSO FINAL:
+1. Não apenas resuma; crie a VERSÃO DEFINITIVA MAIS ELEVADA E COMPLETA possível, incorporando o que de melhor cada IA ofereceu.
+2. Elimine redundâncias, corrija eventuais falhas apontadas no debate e adicione rigor onde necessário.
+3. Entregue um resultado final pronto para ação, de altíssimo nível, impecavelmente formatado em Markdown com introdução clara, tópicos acionáveis e considerações estratégicas.
+`.trim();
+
+    const finalConsensus = await callUniversalAI(
+        synthesizerProvider,
+        apiKeys[synthesizerProvider],
+        'Você é a autoridade máxima de síntese do Conselho de IA. Gere apenas a resposta unificada de consenso final.',
+        consensusPrompt,
+        false
+    );
+
+    return {
+        proposals: validProposals,
+        debate: debateResult,
+        consensus: finalConsensus,
+        participatingCount: validProposals.length
+    };
+}
+
+/**
+ * Gerador de fallback quando o usuário ainda não colocou uma chave de API
  */
 function generateOfflinePrompt(rawIdea, categoryKey, toneKey) {
     const category = PROMPT_CATEGORIES[categoryKey] || PROMPT_CATEGORIES.coding;
@@ -169,7 +513,7 @@ ${category.outputFormat} Use marcações em Markdown, negritos para ênfase e li
         ],
         quickTips: [
             'Dica: Se a resposta da IA for muito longa, responda apenas: "Resuma os 3 pontos mais cruciais em uma tabela".',
-            'Dica: Adicione sua própria chave de API gratuita do Gemini nas Configurações para obter expansões hiperpersonalizadas geradas pelo modelo Flash!'
+            'Dica: Conecte pelo menos 2 IAs nas Configurações (ex: Gemini e Groq grátis) para desbloquear o Conselho de IAs com Debate e Consenso!'
         ],
         isOfflineFallback: true
     };

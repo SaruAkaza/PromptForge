@@ -1,63 +1,102 @@
 /**
- * PromptForge - Controlador Principal da Aplicação
+ * PromptForge - Controlador Principal com Suporte Multi-Motor e Conselho de IAs
  */
 
-// Estado da Aplicação
+// Estado Global
 const state = {
-    apiKey: localStorage.getItem('promptforge_gemini_api_key') || '',
+    apiKeys: {
+        gemini: localStorage.getItem('promptforge_key_gemini') || localStorage.getItem('promptforge_gemini_api_key') || '',
+        groq: localStorage.getItem('promptforge_key_groq') || '',
+        openai: localStorage.getItem('promptforge_key_openai') || '',
+        claude: localStorage.getItem('promptforge_key_claude') || ''
+    },
+    selectedForgingProvider: localStorage.getItem('promptforge_selected_provider') || 'gemini',
     selectedCategory: 'coding',
     selectedTone: 'technical',
     currentPromptData: null,
     history: JSON.parse(localStorage.getItem('promptforge_history') || '[]'),
-    activeTab: 'recent',
-    isGenerating: false,
-    isTesting: false
+    activeHistoryTab: 'recent',
+    activeModalProvider: 'gemini',
+    isForging: false,
+    isSingleTesting: false,
+    isCouncilRunning: false
 };
 
 // Elementos DOM
 const dom = {
+    // Header
+    btnOpenSettings: document.getElementById('btnOpenSettings'),
+    connectionsStatusText: document.getElementById('connectionsStatusText'),
+    btnOpenGuide: document.getElementById('btnOpenGuide'),
+
+    // Painel Esquerdo
     rawIdeaInput: document.getElementById('rawIdeaInput'),
+    forgingProviderSelect: document.getElementById('forgingProviderSelect'),
+    activeEngineBadge: document.getElementById('activeEngineBadge'),
     categoryContainer: document.getElementById('categoryContainer'),
     toneSelect: document.getElementById('toneSelect'),
     btnForge: document.getElementById('btnForge'),
     forgeBtnText: document.getElementById('forgeBtnText'),
     forgeIcon: document.getElementById('forgeIcon'),
-    
+
+    // Histórico
+    historyList: document.getElementById('historyList'),
+    tabRecent: document.getElementById('tabRecent'),
+    tabFavs: document.getElementById('tabFavs'),
+
+    // Painel Direito
     emptyState: document.getElementById('emptyState'),
     resultContent: document.getElementById('resultContent'),
     promptTitle: document.getElementById('promptTitle'),
     badgeCategory: document.getElementById('badgeCategory'),
     badgeTone: document.getElementById('badgeTone'),
+    badgeEngineUsed: document.getElementById('badgeEngineUsed'),
     promptTextDisplay: document.getElementById('promptTextDisplay'),
     xrayCardsContainer: document.getElementById('xrayCardsContainer'),
     quickTipsContainer: document.getElementById('quickTipsContainer'),
-    
+
+    // Botões de Ação
     btnCopyPrompt: document.getElementById('btnCopyPrompt'),
     btnFavCurrent: document.getElementById('btnFavCurrent'),
     favStarIcon: document.getElementById('favStarIcon'),
-    btnTestPrompt: document.getElementById('btnTestPrompt'),
-    
+    btnTestSinglePrompt: document.getElementById('btnTestSinglePrompt'),
+    btnCallCouncil: document.getElementById('btnCallCouncil'),
+
+    // Playground Teste Individual
     playgroundArea: document.getElementById('playgroundArea'),
+    singleTestTitle: document.getElementById('singleTestTitle'),
     playgroundOutput: document.getElementById('playgroundOutput'),
     btnClosePlayground: document.getElementById('btnClosePlayground'),
-    
-    historyList: document.getElementById('historyList'),
-    tabRecent: document.getElementById('tabRecent'),
-    tabFavs: document.getElementById('tabFavs'),
-    
-    btnOpenSettings: document.getElementById('btnOpenSettings'),
+
+    // Conselho de IAs
+    councilArea: document.getElementById('councilArea'),
+    btnCloseCouncil: document.getElementById('btnCloseCouncil'),
+    councilStatus: document.getElementById('councilStatus'),
+    councilStatusText: document.getElementById('councilStatusText'),
+    councilSpinner: document.getElementById('councilSpinner'),
+    councilProposalsGrid: document.getElementById('councilProposalsGrid'),
+    councilDebateSection: document.getElementById('councilDebateSection'),
+    councilDebateContent: document.getElementById('councilDebateContent'),
+    councilConsensusSection: document.getElementById('councilConsensusSection'),
+    councilConsensusContent: document.getElementById('councilConsensusContent'),
+    btnCopyConsensus: document.getElementById('btnCopyConsensus'),
+
+    // Modal de Conexões
     settingsModal: document.getElementById('settingsModal'),
     btnCloseSettings: document.getElementById('btnCloseSettings'),
-    apiKeyInput: document.getElementById('apiKeyInput'),
-    btnSaveApiKey: document.getElementById('btnSaveApiKey'),
-    btnClearApiKey: document.getElementById('btnClearApiKey'),
-    apiKeyStatusText: document.getElementById('apiKeyStatusText'),
-    
-    btnOpenGuide: document.getElementById('btnOpenGuide'),
+    provModalLabel: document.getElementById('provModalLabel'),
+    provModalStatus: document.getElementById('provModalStatus'),
+    provModalInput: document.getElementById('provModalInput'),
+    provModalHelp: document.getElementById('provModalHelp'),
+    btnSaveProvKey: document.getElementById('btnSaveProvKey'),
+    btnClearProvKey: document.getElementById('btnClearProvKey'),
+
+    // Modal do Guia
     guideModal: document.getElementById('guideModal'),
     btnCloseGuide: document.getElementById('btnCloseGuide'),
     btnGotItGuide: document.getElementById('btnGotItGuide'),
-    
+
+    // Toast
     toast: document.getElementById('toast'),
     toastMessage: document.getElementById('toastMessage')
 };
@@ -66,7 +105,8 @@ const dom = {
 document.addEventListener('DOMContentLoaded', () => {
     initCategories();
     initTones();
-    updateApiKeyUI();
+    initForgingProviderSelect();
+    updateConnectionsHeader();
     renderHistory();
     setupEventListeners();
     refreshIcons();
@@ -78,7 +118,7 @@ function refreshIcons() {
     }
 }
 
-// Renderiza os seletores de categoria
+// Inicializa categorias
 function initCategories() {
     dom.categoryContainer.innerHTML = '';
     Object.values(PROMPT_CATEGORIES).forEach(cat => {
@@ -98,7 +138,7 @@ function initCategories() {
     });
 }
 
-// Renderiza o select de tons
+// Inicializa tons de voz
 function initTones() {
     dom.toneSelect.innerHTML = '';
     Object.values(PROMPT_TONES).forEach(tone => {
@@ -113,7 +153,52 @@ function initTones() {
     });
 }
 
-// Configura ouvintes de eventos
+// Inicializa seletor do motor de IA forjador
+function initForgingProviderSelect() {
+    dom.forgingProviderSelect.value = state.selectedForgingProvider;
+    updateActiveEngineBadge();
+
+    dom.forgingProviderSelect.addEventListener('change', (e) => {
+        state.selectedForgingProvider = e.target.value;
+        localStorage.setItem('promptforge_selected_provider', e.target.value);
+        updateActiveEngineBadge();
+    });
+}
+
+function updateActiveEngineBadge() {
+    const provId = state.selectedForgingProvider;
+    if (provId === 'offline') {
+        dom.activeEngineBadge.textContent = 'Motor Offline ⚡';
+        dom.activeEngineBadge.style.color = '#94a3b8';
+        return;
+    }
+
+    const prov = AI_PROVIDERS[provId];
+    const hasKey = !!state.apiKeys[provId];
+    dom.activeEngineBadge.textContent = `${prov.name} ${hasKey ? '🟢' : '⚪'}`;
+    dom.activeEngineBadge.style.color = hasKey ? '#10b981' : '#94a3b8';
+}
+
+// Atualiza contador de conexões no cabeçalho
+function updateConnectionsHeader() {
+    const connectedCount = Object.keys(state.apiKeys).filter(p => !!state.apiKeys[p]).length;
+    dom.connectionsStatusText.textContent = `Central de IAs (${connectedCount}/4 Conectadas)`;
+    
+    if (connectedCount >= 2) {
+        dom.btnOpenSettings.style.borderColor = 'rgba(245, 158, 11, 0.4)';
+        dom.btnOpenSettings.style.color = '#fcd34d';
+        dom.btnCallCouncil.disabled = false;
+        dom.btnCallCouncil.title = `Convocar Conselho de IAs (${connectedCount} IAs prontas)`;
+    } else if (connectedCount === 1) {
+        dom.btnOpenSettings.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+        dom.btnOpenSettings.style.color = '#6ee7b7';
+    } else {
+        dom.btnOpenSettings.style.borderColor = 'var(--border-color)';
+        dom.btnOpenSettings.style.color = 'var(--text-secondary)';
+    }
+}
+
+// Event Listeners Gerais
 function setupEventListeners() {
     // Exemplos rápidos
     document.querySelectorAll('.example-pill').forEach(pill => {
@@ -131,9 +216,6 @@ function setupEventListeners() {
         });
     });
 
-    // Botão Forjar
-    dom.btnForge.addEventListener('click', handleForgePrompt);
-
     // Enter com Ctrl no textarea
     dom.rawIdeaInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
@@ -142,64 +224,64 @@ function setupEventListeners() {
         }
     });
 
+    // Botão Forjar
+    dom.btnForge.addEventListener('click', handleForgePrompt);
+
     // Copiar Prompt
     dom.btnCopyPrompt.addEventListener('click', handleCopyPrompt);
 
-    // Favoritar Prompt Atual
+    // Favoritar
     dom.btnFavCurrent.addEventListener('click', handleToggleFavoriteCurrent);
 
-    // Testar Prompt no Gemini
-    dom.btnTestPrompt.addEventListener('click', handleTestPrompt);
+    // Teste Individual
+    dom.btnTestSinglePrompt.addEventListener('click', handleSingleTestPrompt);
     dom.btnClosePlayground.addEventListener('click', () => {
         dom.playgroundArea.classList.remove('open');
     });
 
+    // Conselho de IAs
+    dom.btnCallCouncil.addEventListener('click', handleCallCouncil);
+    dom.btnCloseCouncil.addEventListener('click', () => {
+        dom.councilArea.classList.remove('open');
+    });
+    dom.btnCopyConsensus.addEventListener('click', handleCopyConsensus);
+
     // Abas de Histórico
     dom.tabRecent.addEventListener('click', () => {
-        state.activeTab = 'recent';
+        state.activeHistoryTab = 'recent';
         dom.tabRecent.classList.add('active');
         dom.tabFavs.classList.remove('active');
         renderHistory();
     });
 
     dom.tabFavs.addEventListener('click', () => {
-        state.activeTab = 'favs';
+        state.activeHistoryTab = 'favs';
         dom.tabFavs.classList.add('active');
         dom.tabRecent.classList.remove('active');
         renderHistory();
     });
 
-    // Modal de Configurações
+    // Modal de Conexões
     dom.btnOpenSettings.addEventListener('click', () => {
-        dom.apiKeyInput.value = state.apiKey;
-        dom.settingsModal.classList.add('open');
+        openConnectionsModal(state.selectedForgingProvider !== 'offline' ? state.selectedForgingProvider : 'gemini');
     });
 
     dom.btnCloseSettings.addEventListener('click', () => {
         dom.settingsModal.classList.remove('open');
     });
 
-    dom.btnSaveApiKey.addEventListener('click', () => {
-        const key = dom.apiKeyInput.value.trim();
-        state.apiKey = key;
-        if (key) {
-            localStorage.setItem('promptforge_gemini_api_key', key);
-            showToast('Chave de API do Gemini salva com sucesso!', 'success');
-        } else {
-            localStorage.removeItem('promptforge_gemini_api_key');
-        }
-        updateApiKeyUI();
-        dom.settingsModal.classList.remove('open');
+    // Abas do Modal de Conexões
+    document.querySelectorAll('.provider-tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.provider-tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            state.activeModalProvider = btn.dataset.prov;
+            renderProviderModalTab();
+        });
     });
 
-    dom.btnClearApiKey.addEventListener('click', () => {
-        state.apiKey = '';
-        dom.apiKeyInput.value = '';
-        localStorage.removeItem('promptforge_gemini_api_key');
-        updateApiKeyUI();
-        showToast('Chave removida!', 'info');
-        dom.settingsModal.classList.remove('open');
-    });
+    dom.btnSaveProvKey.addEventListener('click', handleSaveProviderKey);
+    dom.btnClearProvKey.addEventListener('click', handleClearProviderKey);
 
     // Modal do Guia
     dom.btnOpenGuide.addEventListener('click', () => {
@@ -215,20 +297,70 @@ function setupEventListeners() {
     });
 }
 
-// Atualiza o visual da Chave de API no cabeçalho
-function updateApiKeyUI() {
-    if (state.apiKey) {
-        dom.apiKeyStatusText.textContent = 'Gemini Ativo 🟢';
-        dom.btnOpenSettings.style.borderColor = 'rgba(16, 185, 129, 0.4)';
-        dom.btnOpenSettings.style.color = '#6ee7b7';
-    } else {
-        dom.apiKeyStatusText.textContent = 'Configurar Gemini API';
-        dom.btnOpenSettings.style.borderColor = 'var(--border-color)';
-        dom.btnOpenSettings.style.color = 'var(--text-secondary)';
-    }
+// Modal de Conexões: Renderização da Aba
+function openConnectionsModal(provId = 'gemini') {
+    state.activeModalProvider = provId;
+    document.querySelectorAll('.provider-tab-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.prov === provId);
+    });
+    renderProviderModalTab();
+    dom.settingsModal.classList.add('open');
 }
 
-// Lógica de Forjar Prompt
+function renderProviderModalTab() {
+    const prov = AI_PROVIDERS[state.activeModalProvider];
+    const key = state.apiKeys[prov.id] || '';
+    
+    dom.provModalLabel.textContent = `Chave de API do ${prov.name}`;
+    dom.provModalInput.value = key;
+    
+    if (key) {
+        dom.provModalStatus.textContent = 'Conectado 🟢';
+        dom.provModalStatus.style.color = '#10b981';
+    } else {
+        dom.provModalStatus.textContent = 'Não configurado ⚪';
+        dom.provModalStatus.style.color = '#94a3b8';
+    }
+
+    dom.provModalHelp.innerHTML = `
+        👉 <b>Obtenha sua chave gratuita/oficial:</b> <br>
+        <a href="${prov.docsUrl}" target="_blank" rel="noopener noreferrer">${prov.docsUrl}</a>
+    `;
+}
+
+function handleSaveProviderKey() {
+    const provId = state.activeModalProvider;
+    const key = dom.provModalInput.value.trim();
+    const prov = AI_PROVIDERS[provId];
+
+    state.apiKeys[provId] = key;
+    if (key) {
+        localStorage.setItem(prov.keyStorageKey, key);
+        showToast(`Chave do ${prov.name} salva com sucesso!`, 'success');
+    } else {
+        localStorage.removeItem(prov.keyStorageKey);
+    }
+
+    renderProviderModalTab();
+    updateConnectionsHeader();
+    updateActiveEngineBadge();
+}
+
+function handleClearProviderKey() {
+    const provId = state.activeModalProvider;
+    const prov = AI_PROVIDERS[provId];
+
+    state.apiKeys[provId] = '';
+    dom.provModalInput.value = '';
+    localStorage.removeItem(prov.keyStorageKey);
+
+    renderProviderModalTab();
+    updateConnectionsHeader();
+    updateActiveEngineBadge();
+    showToast(`Chave do ${prov.name} removida`, 'info');
+}
+
+// LÓGICA DE FORJAR PROMPT (MULTI-MOTOR)
 async function handleForgePrompt() {
     const rawIdea = dom.rawIdeaInput.value.trim();
     if (!rawIdea) {
@@ -240,93 +372,51 @@ async function handleForgePrompt() {
     setGeneratingState(true);
 
     try {
+        const provId = state.selectedForgingProvider;
+        const apiKey = state.apiKeys[provId];
         let resultData = null;
+        let usedEngineName = 'Motor Estrutural Local';
 
-        // Se houver chave API, tentamos chamar o Gemini
-        if (state.apiKey) {
+        if (provId !== 'offline' && apiKey) {
             try {
-                resultData = await callGeminiMetaPrompt(rawIdea, state.selectedCategory, state.selectedTone, state.apiKey);
+                const prov = AI_PROVIDERS[provId];
+                usedEngineName = prov.name;
+                resultData = await forgePromptWithAI(provId, apiKey, rawIdea, state.selectedCategory, state.selectedTone);
             } catch (err) {
-                console.warn('Erro ao chamar Gemini API, usando gerador offline inteligente:', err);
-                showToast('Falha na conexão com API. Usando motor estrutural inteligente.', 'warning');
+                console.warn(`Erro no motor ${provId}, acionando motor offline:`, err);
+                showToast(`Falha na API (${err.message}). Usando motor estrutural offline.`, 'warning');
                 resultData = generateOfflinePrompt(rawIdea, state.selectedCategory, state.selectedTone);
+                usedEngineName = 'Motor Estrutural (Fallback)';
             }
         } else {
-            // Se não houver chave, usa o gerador estrutural offline
             resultData = generateOfflinePrompt(rawIdea, state.selectedCategory, state.selectedTone);
-            showToast('Prompt gerado com o motor estrutural! Adicione sua chave Gemini para IA adaptativa.', 'info');
+            if (provId !== 'offline' && !apiKey) {
+                showToast(`O ${AI_PROVIDERS[provId].name} não tem chave salva. Gerando com motor offline inteligente!`, 'info');
+            }
         }
 
-        // Adiciona metadados
+        // Metadados
         resultData.id = 'pf_' + Date.now();
         resultData.createdAt = new Date().toISOString();
         resultData.category = state.selectedCategory;
         resultData.tone = state.selectedTone;
         resultData.rawIdea = rawIdea;
         resultData.isFavorite = false;
+        resultData.engineUsed = usedEngineName;
 
-        // Atualiza estado e exibe resultado
         state.currentPromptData = resultData;
         displayPromptResult(resultData);
-
-        // Salva no histórico
         saveToHistory(resultData);
 
-    } catch (error) {
-        console.error('Erro ao forjar prompt:', error);
-        showToast('Ocorreu um erro ao forjar o prompt: ' + error.message, 'danger');
+    } catch (err) {
+        console.error('Erro ao forjar prompt:', err);
+        showToast('Erro ao forjar prompt: ' + err.message, 'danger');
     } finally {
         setGeneratingState(false);
     }
 }
 
-// Chamada à API do Google Gemini
-async function callGeminiMetaPrompt(rawIdea, category, tone, apiKey) {
-    const promptInstructions = buildMetaPromptRequest(rawIdea, category, tone);
-    
-    // Modelos com tentativa em cascata (2.5-flash -> 1.5-flash)
-    const models = ['gemini-2.5-flash', 'gemini-1.5-flash'];
-    let lastError = null;
-
-    for (const model of models) {
-        try {
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: promptInstructions }] }],
-                    generationConfig: {
-                        temperature: 0.7,
-                        maxOutputTokens: 2048,
-                        responseMimeType: 'application/json'
-                    }
-                })
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error?.message || `HTTP ${response.status}`);
-            }
-
-            const data = await response.json();
-            const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (!textResponse) throw new Error('Resposta vazia da API');
-
-            // Parse seguro do JSON
-            const cleanJson = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
-            const parsed = JSON.parse(cleanJson);
-            return parsed;
-        } catch (err) {
-            console.warn(`Tentativa com modelo ${model} falhou:`, err.message);
-            lastError = err;
-        }
-    }
-
-    throw lastError || new Error('Não foi possível conectar aos modelos do Gemini.');
-}
-
-// Renderiza o resultado na tela
+// Renderiza o resultado forjado
 function displayPromptResult(data) {
     dom.emptyState.style.display = 'none';
     dom.resultContent.style.display = 'flex';
@@ -338,13 +428,13 @@ function displayPromptResult(data) {
 
     dom.badgeCategory.textContent = catObj.name;
     dom.badgeTone.textContent = toneObj.name;
+    dom.badgeEngineUsed.textContent = `Gerador: ${data.engineUsed || 'PromptForge'}`;
 
     dom.promptTextDisplay.textContent = data.formattedPrompt;
 
-    // Atualiza botão de favoritos
     updateFavoriteButtonUI(data.isFavorite);
 
-    // Renderiza Cards do Raio-X Educativo
+    // Cards do Raio-X Educativo
     dom.xrayCardsContainer.innerHTML = '';
     if (data.educationalXray && data.educationalXray.length > 0) {
         data.educationalXray.forEach(item => {
@@ -361,7 +451,7 @@ function displayPromptResult(data) {
         });
     }
 
-    // Renderiza Dicas Rápidas
+    // Dicas
     dom.quickTipsContainer.innerHTML = '';
     if (data.quickTips && data.quickTips.length > 0) {
         data.quickTips.forEach(tip => {
@@ -375,31 +465,28 @@ function displayPromptResult(data) {
         });
     }
 
-    // Esconde o playground se estava aberto de outro prompt
     dom.playgroundArea.classList.remove('open');
+    dom.councilArea.classList.remove('open');
 
     refreshIcons();
 }
 
-// Copiar Prompt para a Área de Transferência
+// Copiar Prompt
 function handleCopyPrompt() {
     if (!state.currentPromptData) return;
     navigator.clipboard.writeText(state.currentPromptData.formattedPrompt).then(() => {
-        showToast('Prompt copiado! Cole agora no ChatGPT, Claude ou Gemini.', 'success');
-    }).catch(err => {
-        console.error('Falha ao copiar:', err);
+        showToast('Prompt copiado! Cole em qualquer IA de sua preferência.', 'success');
+    }).catch(() => {
         showToast('Erro ao copiar para a área de transferência', 'danger');
     });
 }
 
-// Alternar Favorito no Prompt Atual
+// Favoritar
 function handleToggleFavoriteCurrent() {
     if (!state.currentPromptData) return;
-    
     state.currentPromptData.isFavorite = !state.currentPromptData.isFavorite;
     updateFavoriteButtonUI(state.currentPromptData.isFavorite);
 
-    // Atualiza no array de histórico
     const item = state.history.find(h => h.id === state.currentPromptData.id);
     if (item) {
         item.isFavorite = state.currentPromptData.isFavorite;
@@ -407,11 +494,7 @@ function handleToggleFavoriteCurrent() {
         renderHistory();
     }
 
-    if (state.currentPromptData.isFavorite) {
-        showToast('Adicionado aos Favoritos! ⭐', 'success');
-    } else {
-        showToast('Removido dos Favoritos', 'info');
-    }
+    showToast(state.currentPromptData.isFavorite ? 'Adicionado aos Favoritos! ⭐' : 'Removido dos Favoritos', 'info');
 }
 
 function updateFavoriteButtonUI(isFav) {
@@ -426,66 +509,158 @@ function updateFavoriteButtonUI(isFav) {
     }
 }
 
-// Testar Prompt ao Vivo no Gemini
-async function handleTestPrompt() {
+// TESTE INDIVIDUAL RÁPIDO
+async function handleSingleTestPrompt() {
     if (!state.currentPromptData) return;
 
-    if (!state.apiKey) {
-        showToast('Para testar ao vivo, configure sua chave do Gemini!', 'warning');
-        dom.settingsModal.classList.add('open');
+    // Acha a primeira IA conectada ou a IA selecionada
+    let provId = state.selectedForgingProvider !== 'offline' ? state.selectedForgingProvider : null;
+    if (!provId || !state.apiKeys[provId]) {
+        provId = Object.keys(state.apiKeys).find(p => !!state.apiKeys[p]);
+    }
+
+    if (!provId) {
+        showToast('Configure ao menos uma chave de IA para testar ao vivo!', 'warning');
+        openConnectionsModal('gemini');
         return;
     }
 
+    const prov = AI_PROVIDERS[provId];
+    dom.singleTestTitle.textContent = `Resposta em Tempo Real: ${prov.name}`;
     dom.playgroundArea.classList.add('open');
     dom.playgroundOutput.innerHTML = `
         <div style="display: flex; align-items: center; gap: 0.5rem; color: #93c5fd;">
             <i data-lucide="loader-2" class="animate-spin" style="width: 18px; height: 18px;"></i>
-            <span>Enviando o prompt para o Gemini e aguardando resposta...</span>
+            <span>Enviando o prompt para ${prov.name}...</span>
         </div>
     `;
     refreshIcons();
 
     try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.apiKey}`;
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: state.currentPromptData.formattedPrompt }] }],
-                generationConfig: {
-                    temperature: 0.7,
-                    maxOutputTokens: 2048
-                }
-            })
-        });
-
-        if (!response.ok) {
-            const errData = await response.json().catch(() => ({}));
-            throw new Error(errData.error?.message || `HTTP ${response.status}`);
-        }
-
-        const data = await response.json();
-        const outputText = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Nenhuma resposta retornada.';
-        dom.playgroundOutput.textContent = outputText;
-
+        const response = await callUniversalAI(
+            provId, 
+            state.apiKeys[provId], 
+            'Responda profissionalmente ao prompt com clareza e estrutura.', 
+            state.currentPromptData.formattedPrompt, 
+            false
+        );
+        dom.playgroundOutput.textContent = response;
     } catch (err) {
         dom.playgroundOutput.innerHTML = `
             <div style="color: #f87171;">
-                <b>Erro ao executar teste:</b> ${err.message}<br><br>
-                Verifique se sua chave da API do Gemini é válida e possui cotas disponíveis.
+                <b>Erro ao executar teste com ${prov.name}:</b> ${err.message}<br><br>
+                Verifique se a sua chave de API possui cotas e é válida.
             </div>
         `;
     }
 }
 
+// =======================================================
+// CONSELHO DE IAS (DEBATE E CONSENSO CONJUNTO)
+// =======================================================
+async function handleCallCouncil() {
+    if (!state.currentPromptData) return;
+
+    // Obtém quais IAs estão com chave conectada
+    const connectedProviders = Object.keys(state.apiKeys).filter(p => !!state.apiKeys[p]);
+
+    // Requisito estrito: mínimo de 2 provedores
+    if (connectedProviders.length < 2) {
+        showToast('O Conselho de IAs requer pelo menos 2 IAs conectadas! Conecte o Groq ou Gemini (ambos gratuitos).', 'warning');
+        // Abre o modal diretamente na aba do Groq ou Gemini que estiver faltando
+        const missing = !state.apiKeys.groq ? 'groq' : 'gemini';
+        openConnectionsModal(missing);
+        return;
+    }
+
+    // Abre a Sala do Conselho
+    dom.councilArea.classList.add('open');
+    dom.councilArea.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    // Reseta visual
+    dom.councilSpinner.style.display = 'inline-block';
+    dom.councilStatusText.textContent = `Convocando Conselho com ${connectedProviders.length} IAs participantes...`;
+    dom.councilProposalsGrid.innerHTML = `
+        <div style="color: var(--text-muted); font-size: 0.85rem; padding: 1rem;">
+            Aguardando propostas individuais dos membros do conselho...
+        </div>
+    `;
+    dom.councilDebateSection.style.display = 'none';
+    dom.councilConsensusSection.style.display = 'none';
+    refreshIcons();
+
+    try {
+        const councilResult = await runAiCouncil({
+            promptText: state.currentPromptData.formattedPrompt,
+            connectedProviders: connectedProviders,
+            apiKeys: state.apiKeys,
+            onProgress: (prog) => {
+                dom.councilStatusText.textContent = prog.text;
+            }
+        });
+
+        // FASE 1: Renderiza Propostas Individuais
+        dom.councilProposalsGrid.innerHTML = '';
+        councilResult.proposals.forEach(p => {
+            const prov = AI_PROVIDERS[p.providerId];
+            const card = document.createElement('div');
+            card.className = 'proposal-card';
+            card.innerHTML = `
+                <div class="proposal-card-header">
+                    <span style="color: ${prov.badgeColor};">● ${p.providerName}</span>
+                    <span style="font-size: 0.7rem; color: var(--text-muted);">${prov.model}</span>
+                </div>
+                <div class="proposal-content">${escapeHtml(p.content)}</div>
+            `;
+            dom.councilProposalsGrid.appendChild(card);
+        });
+
+        // FASE 2: Renderiza Debate
+        if (councilResult.debate) {
+            dom.councilDebateSection.style.display = 'block';
+            dom.councilDebateContent.textContent = councilResult.debate;
+        }
+
+        // FASE 3: Renderiza Consenso Final
+        if (councilResult.consensus) {
+            dom.councilConsensusSection.style.display = 'flex';
+            dom.councilConsensusContent.textContent = councilResult.consensus;
+        }
+
+        // Status Final
+        dom.councilSpinner.style.display = 'none';
+        dom.councilStatusText.textContent = `✓ Sessão concluída com sucesso! Consenso unificado alcançado com ${councilResult.participatingCount} IAs.`;
+        showToast('O Conselho de IAs alcançou um consenso unificado!', 'success');
+
+    } catch (err) {
+        console.error('Erro no Conselho de IAs:', err);
+        dom.councilSpinner.style.display = 'none';
+        dom.councilStatusText.textContent = `Falha na sessão do conselho: ${err.message}`;
+        showToast('Erro no Conselho de IAs: ' + err.message, 'danger');
+    }
+
+    refreshIcons();
+}
+
+function handleCopyConsensus() {
+    const text = dom.councilConsensusContent.textContent;
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+        showToast('Resposta de Consenso Final copiada com sucesso!', 'success');
+    }).catch(() => {
+        showToast('Erro ao copiar', 'danger');
+    });
+}
+
+function escapeHtml(text) {
+    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+    return String(text).replace(/[&<>"']/g, m => map[m]);
+}
+
 // Histórico e Persistência
 function saveToHistory(promptData) {
-    // Insere no início
     state.history.unshift(promptData);
-    // Limita aos 50 mais recentes
-    if (state.history.length > 50) {
-        state.history.pop();
-    }
+    if (state.history.length > 50) state.history.pop();
     persistHistory();
     renderHistory();
 }
@@ -497,14 +672,14 @@ function persistHistory() {
 function renderHistory() {
     dom.historyList.innerHTML = '';
 
-    const list = state.activeTab === 'favs'
+    const list = state.activeHistoryTab === 'favs'
         ? state.history.filter(item => item.isFavorite)
         : state.history;
 
     if (list.length === 0) {
         dom.historyList.innerHTML = `
             <div style="text-align: center; padding: 2rem 1rem; color: var(--text-muted); font-size: 0.8rem;">
-                ${state.activeTab === 'favs' ? 'Nenhum prompt favoritado ainda.' : 'Nenhum prompt no histórico.'}
+                ${state.activeHistoryTab === 'favs' ? 'Nenhum prompt favoritado ainda.' : 'Nenhum prompt no histórico.'}
             </div>
         `;
         return;
@@ -527,7 +702,6 @@ function renderHistory() {
             </div>
         `;
 
-        // Carregar ao clicar no título
         itemEl.querySelector('.history-item-title').addEventListener('click', () => {
             state.currentPromptData = item;
             dom.rawIdeaInput.value = item.rawIdea || '';
@@ -538,7 +712,6 @@ function renderHistory() {
             displayPromptResult(item);
         });
 
-        // Alternar favorito do item
         itemEl.querySelector('.btn-item-fav').addEventListener('click', (e) => {
             e.stopPropagation();
             item.isFavorite = !item.isFavorite;
@@ -550,7 +723,6 @@ function renderHistory() {
             renderHistory();
         });
 
-        // Excluir item
         itemEl.querySelector('.btn-item-del').addEventListener('click', (e) => {
             e.stopPropagation();
             state.history = state.history.filter(h => h.id !== item.id);
@@ -565,12 +737,11 @@ function renderHistory() {
     refreshIcons();
 }
 
-// Estados de Carregamento
 function setGeneratingState(isGen) {
-    state.isGenerating = isGen;
+    state.isForging = isGen;
     dom.btnForge.disabled = isGen;
     if (isGen) {
-        dom.forgeBtnText.textContent = 'Forjando Contexto com IA...';
+        dom.forgeBtnText.textContent = 'Forjando com IA...';
         dom.forgeIcon.classList.add('animate-spin');
     } else {
         dom.forgeBtnText.textContent = 'Forjar Prompt Mestre';
@@ -578,15 +749,13 @@ function setGeneratingState(isGen) {
     }
 }
 
-// Notificações Toast
+// Toast
 let toastTimeout = null;
 function showToast(message, type = 'info') {
     clearTimeout(toastTimeout);
     dom.toastMessage.textContent = message;
     dom.toast.className = 'toast show';
-    
     if (type === 'success') dom.toast.classList.add('toast-success');
-    
     toastTimeout = setTimeout(() => {
         dom.toast.classList.remove('show');
     }, 3500);
