@@ -9,11 +9,19 @@ const AI_PROVIDERS = {
         id: 'gemini',
         name: 'Google Gemini',
         defaultModel: 'gemini-2.5-flash',
-        topCuttingEdgeModel: 'gemini-2.5-pro',
+        topCuttingEdgeModel: 'gemini-3.8-preview',
         keyStorageKey: 'promptforge_key_gemini',
         modelStorageKey: 'promptforge_model_gemini',
         docsUrl: 'https://aistudio.google.com/app/apikey',
-        canDiscoverModels: true
+        canDiscoverModels: true,
+        predefinedModels: [
+            { id: 'gemini-3.8-preview', name: 'Gemini 3.8 Preview (Mais recente / Pro)', isPro: true },
+            { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro (Raciocínio avançado)', isPro: true },
+            { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (Rápido e versátil)', isPro: false },
+            { id: 'gemini-2.0-flash-thinking-exp', name: 'Gemini 2.0 Flash Thinking (Raciocínio)', isPro: true },
+            { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', isPro: true },
+            { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', isPro: false }
+        ]
     },
     groq: {
         id: 'groq',
@@ -194,29 +202,42 @@ async function fetchAvailableModels(providerId, apiKey) {
 
     try {
         if (providerId === 'gemini') {
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const data = await res.json();
-            
-            const models = (data.models || [])
-                .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent'))
-                .map(m => {
-                    const id = m.name.replace('models/', '');
-                    return {
-                        id: id,
-                        name: m.displayName || id,
-                        isPro: id.includes('pro') || id.includes('ultra') || id.includes('3.')
-                    };
-                });
+            let apiModels = [];
+            try {
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    apiModels = (data.models || [])
+                        .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent'))
+                        .map(m => {
+                            const id = m.name.replace('models/', '');
+                            return {
+                                id: id,
+                                name: m.displayName || id,
+                                isPro: id.includes('pro') || id.includes('ultra') || id.includes('3.') || id.includes('thinking')
+                            };
+                        });
+                }
+            } catch (e) {
+                console.warn('Erro ao consultar API de modelos Gemini:', e.message);
+            }
 
-            // Ordena: Pro e modelos mais recentes primeiro, seguidos por Flash
-            models.sort((a, b) => {
+            // Mescla com modelos predefinidos garantindo que gemini-3.8-preview e Pro estejam presentes
+            const combined = [...(AI_PROVIDERS.gemini.predefinedModels || [])];
+            apiModels.forEach(m => {
+                if (!combined.some(c => c.id === m.id)) {
+                    combined.push(m);
+                }
+            });
+
+            // Ordena: Pro e modelos mais recentes (3.x, pro, ultra) primeiro
+            combined.sort((a, b) => {
                 if (a.isPro && !b.isPro) return -1;
                 if (!a.isPro && b.isPro) return 1;
                 return b.id.localeCompare(a.id);
             });
 
-            return models;
+            return combined;
         }
 
         if (providerId === 'groq') {

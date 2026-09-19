@@ -48,6 +48,7 @@ const dom = {
     rawIdeaInput: document.getElementById('rawIdeaInput'),
     forgingProviderSelect: document.getElementById('forgingProviderSelect'),
     activeEngineBadge: document.getElementById('activeEngineBadge'),
+    btnConfigProvKeyInline: document.getElementById('btnConfigProvKeyInline'),
     panelModelGroup: document.getElementById('panelModelGroup'),
     panelModelSelect: document.getElementById('panelModelSelect'),
     panelModelTypeTag: document.getElementById('panelModelTypeTag'),
@@ -80,26 +81,12 @@ const dom = {
     favStarIcon: document.getElementById('favStarIcon'),
     btnTestSinglePrompt: document.getElementById('btnTestSinglePrompt'),
     btnSendToCouncil: document.getElementById('btnSendToCouncil'),
-    btnCallCouncil: document.getElementById('btnCallCouncil'),
 
     // Playground Teste Individual
     playgroundArea: document.getElementById('playgroundArea'),
     singleTestTitle: document.getElementById('singleTestTitle'),
     playgroundOutput: document.getElementById('playgroundOutput'),
     btnClosePlayground: document.getElementById('btnClosePlayground'),
-
-    // Mesa de Revisão Integrada (Dentro do Forjador)
-    councilArea: document.getElementById('councilArea'),
-    btnCloseCouncil: document.getElementById('btnCloseCouncil'),
-    councilStatus: document.getElementById('councilStatus'),
-    councilStatusText: document.getElementById('councilStatusText'),
-    councilSpinner: document.getElementById('councilSpinner'),
-    councilProposalsGrid: document.getElementById('councilProposalsGrid'),
-    councilDebateSection: document.getElementById('councilDebateSection'),
-    councilDebateContent: document.getElementById('councilDebateContent'),
-    councilConsensusSection: document.getElementById('councilConsensusSection'),
-    councilConsensusContent: document.getElementById('councilConsensusContent'),
-    btnCopyConsensus: document.getElementById('btnCopyConsensus'),
 
     // Tela Exclusiva: Mesa Redonda (Debate entre IAs)
     roundTableQuestionInput: document.getElementById('roundTableQuestionInput'),
@@ -507,7 +494,6 @@ function updateConnectionsHeader() {
         dom.btnOpenSettings.style.borderColor = 'var(--border-strong)';
         dom.btnOpenSettings.style.color = 'var(--accent)';
         if (dom.btnSendToCouncil) dom.btnSendToCouncil.disabled = false;
-        if (dom.btnCallCouncil) dom.btnCallCouncil.disabled = false;
     } else if (connectedCount === 1) {
         dom.btnOpenSettings.style.borderColor = 'var(--border)';
         dom.btnOpenSettings.style.color = 'var(--sage)';
@@ -554,41 +540,58 @@ function setupEventListeners() {
     dom.btnFavCurrent.addEventListener('click', handleToggleFavoriteCurrent);
 
     // Teste Individual
-    dom.btnTestSinglePrompt.addEventListener('click', handleSingleTestPrompt);
-    dom.btnClosePlayground.addEventListener('click', () => {
-        dom.playgroundArea.classList.remove('open');
-    });
-
-    // Conselho de IAs
-    dom.btnCallCouncil.addEventListener('click', handleCallCouncil);
-    dom.btnCloseCouncil.addEventListener('click', () => {
-        dom.councilArea.classList.remove('open');
-    });
-    dom.btnCopyConsensus.addEventListener('click', handleCopyConsensus);
+    if (dom.btnTestSinglePrompt) dom.btnTestSinglePrompt.addEventListener('click', handleSingleTestPrompt);
+    if (dom.btnClosePlayground) {
+        dom.btnClosePlayground.addEventListener('click', () => {
+            dom.playgroundArea.classList.remove('open');
+        });
+    }
 
     // Abas de Histórico
-    dom.tabRecent.addEventListener('click', () => {
-        state.activeHistoryTab = 'recent';
-        dom.tabRecent.classList.add('active');
-        dom.tabFavs.classList.remove('active');
-        renderHistory();
-    });
+    if (dom.tabRecent) {
+        dom.tabRecent.addEventListener('click', () => {
+            state.activeHistoryTab = 'recent';
+            dom.tabRecent.classList.add('active');
+            dom.tabFavs.classList.remove('active');
+            renderHistory();
+        });
+    }
 
-    dom.tabFavs.addEventListener('click', () => {
-        state.activeHistoryTab = 'favs';
-        dom.tabFavs.classList.add('active');
-        dom.tabRecent.classList.remove('active');
-        renderHistory();
-    });
+    if (dom.tabFavs) {
+        dom.tabFavs.addEventListener('click', () => {
+            state.activeHistoryTab = 'favs';
+            dom.tabFavs.classList.add('active');
+            dom.tabRecent.classList.remove('active');
+            renderHistory();
+        });
+    }
 
     // Modal de Conexões
-    dom.btnOpenSettings.addEventListener('click', () => {
-        openConnectionsModal(state.selectedForgingProvider !== 'offline' ? state.selectedForgingProvider : 'gemini');
-    });
+    if (dom.btnOpenSettings) {
+        dom.btnOpenSettings.addEventListener('click', () => {
+            openConnectionsModal(state.selectedForgingProvider !== 'offline' ? state.selectedForgingProvider : 'gemini');
+        });
+    }
 
-    dom.btnCloseSettings.addEventListener('click', () => {
-        dom.settingsModal.classList.remove('open');
-    });
+    if (dom.btnConfigProvKeyInline) {
+        dom.btnConfigProvKeyInline.addEventListener('click', () => {
+            const provId = state.selectedForgingProvider !== 'offline' ? state.selectedForgingProvider : 'gemini';
+            openConnectionsModal(provId);
+        });
+    }
+
+    if (dom.activeEngineBadge) {
+        dom.activeEngineBadge.addEventListener('click', () => {
+            const provId = state.selectedForgingProvider !== 'offline' ? state.selectedForgingProvider : 'gemini';
+            openConnectionsModal(provId);
+        });
+    }
+
+    if (dom.btnCloseSettings) {
+        dom.btnCloseSettings.addEventListener('click', () => {
+            dom.settingsModal.classList.remove('open');
+        });
+    }
 
     // Abas do Modal de Conexões
     document.querySelectorAll('.provider-tab-btn').forEach(btn => {
@@ -600,8 +603,8 @@ function setupEventListeners() {
         });
     });
 
-    dom.btnSaveProvKey.addEventListener('click', handleSaveProviderKey);
-    dom.btnClearProvKey.addEventListener('click', handleClearProviderKey);
+    if (dom.btnSaveProvKey) dom.btnSaveProvKey.addEventListener('click', handleSaveProviderKey);
+    if (dom.btnClearProvKey) dom.btnClearProvKey.addEventListener('click', handleClearProviderKey);
 
     // Modal do Guia
     dom.btnOpenGuide.addEventListener('click', () => {
@@ -1011,95 +1014,6 @@ async function handleSingleTestPrompt() {
             </div>
         `;
     }
-}
-
-// MESA DE REVISÃO E CONSENSO (CONSELHO DE IAS)
-async function handleCallCouncil() {
-    if (!state.currentPromptData) return;
-
-    const connectedProviders = Object.keys(state.apiKeys).filter(p => !!state.apiKeys[p]);
-
-    if (connectedProviders.length < 2) {
-        showToast('A Mesa de Revisão requer ao menos 2 modelos conectados.', 'warning');
-        const missing = !state.apiKeys.groq ? 'groq' : 'gemini';
-        openConnectionsModal(missing);
-        return;
-    }
-
-    dom.councilArea.classList.add('open');
-    dom.councilArea.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-
-    dom.councilSpinner.style.display = 'inline-block';
-    dom.councilStatusText.textContent = `Consultando ${connectedProviders.length} modelos conectados...`;
-    dom.councilProposalsGrid.innerHTML = `
-        <div style="color: var(--ink-muted); font-size: 0.82rem; padding: 0.5rem;">
-            Aguardando propostas individuais dos modelos...
-        </div>
-    `;
-    dom.councilDebateSection.style.display = 'none';
-    dom.councilConsensusSection.style.display = 'none';
-    refreshIcons();
-
-    try {
-        const councilResult = await runAiCouncil({
-            promptText: state.currentPromptData.formattedPrompt,
-            connectedProviders: connectedProviders,
-            apiKeys: state.apiKeys,
-            configuredModels: state.configuredModels,
-            onProgress: (prog) => {
-                dom.councilStatusText.textContent = prog.text;
-            }
-        });
-
-        // ETAPA 1: Propostas
-        dom.councilProposalsGrid.innerHTML = '';
-        councilResult.proposals.forEach(p => {
-            const card = document.createElement('div');
-            card.className = 'proposal-card';
-            card.innerHTML = `
-                <div class="proposal-card-header">
-                    <span>${p.providerName}</span>
-                    <span style="font-size: 0.72rem; color: var(--ink-muted);">${p.modelUsed}</span>
-                </div>
-                <div class="proposal-content">${escapeHtml(p.content)}</div>
-            `;
-            dom.councilProposalsGrid.appendChild(card);
-        });
-
-        // ETAPA 2: Debate
-        if (councilResult.debate) {
-            dom.councilDebateSection.style.display = 'block';
-            dom.councilDebateContent.textContent = councilResult.debate;
-        }
-
-        // ETAPA 3: Consenso
-        if (councilResult.consensus) {
-            dom.councilConsensusSection.style.display = 'flex';
-            dom.councilConsensusContent.textContent = councilResult.consensus;
-        }
-
-        dom.councilSpinner.style.display = 'none';
-        dom.councilStatusText.textContent = `Sessão concluída. Parecer unificado a partir de ${councilResult.participatingCount} modelos.`;
-        showToast('Parecer de consenso formulado.', 'success');
-
-    } catch (err) {
-        console.error('Erro na Mesa do Conselho:', err);
-        dom.councilSpinner.style.display = 'none';
-        dom.councilStatusText.textContent = `Falha na consulta: ${err.message}`;
-        showToast('Erro na consulta do conselho: ' + err.message, 'danger');
-    }
-
-    refreshIcons();
-}
-
-function handleCopyConsensus() {
-    const text = dom.councilConsensusContent.textContent;
-    if (!text) return;
-    navigator.clipboard.writeText(text).then(() => {
-        showToast('Parecer de consenso copiado.', 'success');
-    }).catch(() => {
-        showToast('Erro ao copiar.', 'danger');
-    });
 }
 
 function escapeHtml(text) {

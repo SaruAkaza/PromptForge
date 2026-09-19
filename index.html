@@ -77,7 +77,12 @@
           <div>
             <div class="section-label">
               <span>Provedor da IA</span>
-              <span id="activeEngineBadge" style="font-size: 0.72rem; color: var(--ink-secondary);">Google Gemini</span>
+              <div style="display: flex; align-items: center; gap: 0.4rem;">
+                <span id="activeEngineBadge" style="font-size: 0.72rem; color: var(--ink-secondary); cursor: pointer;" title="Clique para configurar chave">Google Gemini</span>
+                <button id="btnConfigProvKeyInline" class="icon-btn-sm" title="Adicionar ou alterar chave de API" style="padding: 2px 5px; color: var(--accent); background: var(--surface-overlay); border-radius: 4px;">
+                  <i data-lucide="key" style="width: 12px; height: 12px;"></i>
+                </button>
+              </div>
             </div>
             <select id="forgingProviderSelect" class="custom-select">
               <option value="gemini">Google Gemini</option>
