@@ -63,10 +63,11 @@
             <span id="activeEngineBadge" style="font-size: 0.72rem; color: var(--ink-secondary);">Google Gemini</span>
           </div>
           <select id="forgingProviderSelect" class="custom-select">
-            <option value="gemini">Google Gemini 2.5 Flash</option>
-            <option value="groq">Groq (Llama 3.3 70B / DeepSeek R1)</option>
-            <option value="openai">OpenAI GPT-4o-mini</option>
-            <option value="claude">Anthropic Claude 3.5 Haiku</option>
+            <option value="gemini">Google Gemini</option>
+            <option value="groq">Groq</option>
+            <option value="openai">OpenAI</option>
+            <option value="claude">Anthropic Claude</option>
+            <option value="openrouter">OpenRouter</option>
             <option value="offline">Motor local estruturado</option>
           </select>
         </div>
@@ -276,9 +277,10 @@
         <button class="provider-tab-btn" data-prov="groq">Groq</button>
         <button class="provider-tab-btn" data-prov="openai">OpenAI</button>
         <button class="provider-tab-btn" data-prov="claude">Claude</button>
+        <button class="provider-tab-btn" data-prov="openrouter">OpenRouter</button>
       </div>
 
-      <!-- Configuração da Chave -->
+      <!-- Configuração da Chave e Modelo -->
       <div id="providerConfigBody">
         <div class="section-label">
           <span id="provModalLabel">Chave do Google Gemini</span>
@@ -290,9 +292,28 @@
           Acesse para obter uma chave: <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a>
         </div>
 
-        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;">
+        <!-- Modelo Selecionado / Auto-detectado -->
+        <div id="provModelContainer" style="margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 0.85rem;">
+          <div class="section-label">
+            <span>Modelo ativo</span>
+            <span id="provModelDetectTag" style="font-size: 0.72rem; color: var(--accent);">Auto-detectado da conta</span>
+          </div>
+          <select id="provModalModelSelect" class="custom-select" style="margin-bottom: 0.65rem;">
+            <!-- Modelos preenchidos dinamicamente -->
+          </select>
+
+          <div class="section-label" style="margin-top: 0.4rem;">
+            <span>ID de modelo customizado (opcional)</span>
+          </div>
+          <input type="text" id="provModalCustomModelInput" class="modal-input" placeholder="Ex: gemini-2.5-pro, gemini-3.8-preview, etc.">
+          <div style="font-size: 0.72rem; color: var(--ink-muted); margin-top: -0.4rem;">
+            Permite forçar versões Pro, prévias ou modelos experimentais disponíveis na sua conta.
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1.25rem;">
           <button id="btnClearProvKey" class="btn-ghost" style="color: var(--crimson);">Remover</button>
-          <button id="btnSaveProvKey" class="btn-primary">Salvar</button>
+          <button id="btnSaveProvKey" class="btn-primary">Salvar alterações</button>
         </div>
       </div>
 

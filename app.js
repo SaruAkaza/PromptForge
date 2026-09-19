@@ -1,5 +1,5 @@
 /**
- * PromptForge - Controlador Principal com Suporte Multi-Motor e Conselho de IAs
+ * PromptForge - Controlador Principal com Suporte Multi-Motor e Auto-Detecção de Modelos
  */
 
 // Estado Global
@@ -8,8 +8,17 @@ const state = {
         gemini: localStorage.getItem('promptforge_key_gemini') || localStorage.getItem('promptforge_gemini_api_key') || '',
         groq: localStorage.getItem('promptforge_key_groq') || '',
         openai: localStorage.getItem('promptforge_key_openai') || '',
-        claude: localStorage.getItem('promptforge_key_claude') || ''
+        claude: localStorage.getItem('promptforge_key_claude') || '',
+        openrouter: localStorage.getItem('promptforge_key_openrouter') || ''
     },
+    configuredModels: {
+        gemini: localStorage.getItem('promptforge_model_gemini') || '',
+        groq: localStorage.getItem('promptforge_model_groq') || '',
+        openai: localStorage.getItem('promptforge_model_openai') || '',
+        claude: localStorage.getItem('promptforge_model_claude') || '',
+        openrouter: localStorage.getItem('promptforge_model_openrouter') || ''
+    },
+    discoveredModels: {},
     selectedForgingProvider: localStorage.getItem('promptforge_selected_provider') || 'gemini',
     selectedCategory: 'coding',
     selectedTone: 'technical',
@@ -68,7 +77,7 @@ const dom = {
     playgroundOutput: document.getElementById('playgroundOutput'),
     btnClosePlayground: document.getElementById('btnClosePlayground'),
 
-    // Conselho de IAs
+    // Mesa de Revisão (Conselho de IAs)
     councilArea: document.getElementById('councilArea'),
     btnCloseCouncil: document.getElementById('btnCloseCouncil'),
     councilStatus: document.getElementById('councilStatus'),
@@ -88,6 +97,9 @@ const dom = {
     provModalStatus: document.getElementById('provModalStatus'),
     provModalInput: document.getElementById('provModalInput'),
     provModalHelp: document.getElementById('provModalHelp'),
+    provModalModelSelect: document.getElementById('provModalModelSelect'),
+    provModalCustomModelInput: document.getElementById('provModalCustomModelInput'),
+    provModelDetectTag: document.getElementById('provModelDetectTag'),
     btnSaveProvKey: document.getElementById('btnSaveProvKey'),
     btnClearProvKey: document.getElementById('btnClearProvKey'),
 
@@ -110,6 +122,13 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistory();
     setupEventListeners();
     refreshIcons();
+
+    // Auto-detecta modelos em background para chaves já salvas
+    Object.keys(state.apiKeys).forEach(provId => {
+        if (state.apiKeys[provId]) {
+            loadModelsForProvider(provId, state.apiKeys[provId]);
+        }
+    });
 });
 
 function refreshIcons() {
@@ -126,7 +145,7 @@ function initCategories() {
         chip.className = `category-chip ${cat.id === state.selectedCategory ? 'active' : ''}`;
         chip.dataset.id = cat.id;
         chip.innerHTML = `
-            <i data-lucide="${cat.icon}" style="width: 16px; height: 16px;"></i>
+            <i data-lucide="${cat.icon}" style="width: 15px; height: 15px;"></i>
             <span>${cat.name}</span>
         `;
         chip.addEventListener('click', () => {
@@ -153,7 +172,7 @@ function initTones() {
     });
 }
 
-// Inicializa seletor do motor de IA forjador
+// Inicializa seletor do motor gerador
 function initForgingProviderSelect() {
     dom.forgingProviderSelect.value = state.selectedForgingProvider;
     updateActiveEngineBadge();
@@ -174,15 +193,18 @@ function updateActiveEngineBadge() {
     }
 
     const prov = AI_PROVIDERS[provId];
+    if (!prov) return;
     const hasKey = !!state.apiKeys[provId];
-    dom.activeEngineBadge.textContent = `${prov.name} ${hasKey ? '(conectado)' : '(sem chave)'}`;
+    const activeModel = state.configuredModels[provId] || prov.defaultModel;
+
+    dom.activeEngineBadge.textContent = hasKey ? `${prov.name} (${activeModel})` : `${prov.name} (sem chave)`;
     dom.activeEngineBadge.style.color = hasKey ? 'var(--sage)' : 'var(--ink-muted)';
 }
 
 // Atualiza contador de conexões no cabeçalho
 function updateConnectionsHeader() {
     const connectedCount = Object.keys(state.apiKeys).filter(p => !!state.apiKeys[p]).length;
-    dom.connectionsStatusText.textContent = `Modelos (${connectedCount}/4 conectados)`;
+    dom.connectionsStatusText.textContent = `Modelos (${connectedCount}/5 conectados)`;
     
     if (connectedCount >= 2) {
         dom.btnOpenSettings.style.borderColor = 'var(--border-strong)';
@@ -212,7 +234,7 @@ function setupEventListeners() {
                 state.selectedTone = pill.dataset.tone;
                 dom.toneSelect.value = pill.dataset.tone;
             }
-            showToast('Exemplo carregado!', 'info');
+            showToast('Exemplo carregado.', 'info');
         });
     });
 
@@ -308,8 +330,9 @@ function openConnectionsModal(provId = 'gemini') {
 }
 
 function renderProviderModalTab() {
-    const prov = AI_PROVIDERS[state.activeModalProvider];
-    const key = state.apiKeys[prov.id] || '';
+    const provId = state.activeModalProvider;
+    const prov = AI_PROVIDERS[provId];
+    const key = state.apiKeys[provId] || '';
     
     dom.provModalLabel.textContent = `Chave do ${prov.name}`;
     dom.provModalInput.value = key;
@@ -325,19 +348,102 @@ function renderProviderModalTab() {
     dom.provModalHelp.innerHTML = `
         Acesse para obter uma chave: <a href="${prov.docsUrl}" target="_blank" rel="noopener noreferrer">${prov.docsUrl}</a>
     `;
+
+    // Renderiza a lista de modelos daquele provedor
+    renderModelsDropdown(provId);
+
+    // Se a chave existir mas os modelos ainda não foram carregados, dispara auto-detecção
+    if (key && !state.discoveredModels[provId]) {
+        loadModelsForProvider(provId, key);
+    }
+}
+
+// Renderiza o select de modelos no modal
+function renderModelsDropdown(provId) {
+    const prov = AI_PROVIDERS[provId];
+    dom.provModalModelSelect.innerHTML = '';
+
+    const models = state.discoveredModels[provId] || prov.predefinedModels || [
+        { id: prov.defaultModel, name: `${prov.defaultModel} (Padrão)` }
+    ];
+
+    models.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = m.name + (m.isPro ? ' [Pro/Avançado]' : '');
+        dom.provModalModelSelect.appendChild(opt);
+    });
+
+    const activeModel = state.configuredModels[provId] || prov.defaultModel;
+    const isCustom = !models.some(m => m.id === activeModel);
+
+    if (isCustom && activeModel) {
+        dom.provModalCustomModelInput.value = activeModel;
+    } else {
+        dom.provModalModelSelect.value = activeModel;
+        dom.provModalCustomModelInput.value = '';
+    }
+}
+
+// Executa auto-detecção assíncrona consultando a API do provedor
+async function loadModelsForProvider(provId, key) {
+    if (!key) return;
+    const prov = AI_PROVIDERS[provId];
+
+    dom.provModelDetectTag.textContent = 'Consultando modelos da conta...';
+
+    try {
+        const models = await fetchAvailableModels(provId, key);
+        if (models && models.length > 0) {
+            state.discoveredModels[provId] = models;
+
+            // Se o usuário ainda não escolheu um modelo específico, seleciona automaticamente o modelo Pro/topo de linha
+            if (!state.configuredModels[provId]) {
+                const topModel = models[0].id;
+                state.configuredModels[provId] = topModel;
+                localStorage.setItem(prov.modelStorageKey, topModel);
+            }
+
+            const currentModel = state.configuredModels[provId];
+            const isTopPro = models.find(m => m.id === currentModel && m.isPro);
+            dom.provModelDetectTag.textContent = isTopPro ? 'Modelo Pro/Avançado detectado da conta' : 'Modelos autorizados detectados';
+
+            if (state.activeModalProvider === provId) {
+                renderModelsDropdown(provId);
+            }
+            updateActiveEngineBadge();
+        } else {
+            dom.provModelDetectTag.textContent = 'Modelos padrão ativos';
+        }
+    } catch (err) {
+        dom.provModelDetectTag.textContent = 'Usando modelo padrão';
+    }
 }
 
 function handleSaveProviderKey() {
     const provId = state.activeModalProvider;
     const key = dom.provModalInput.value.trim();
+    const customModel = dom.provModalCustomModelInput.value.trim();
+    const selectedModel = dom.provModalModelSelect.value;
     const prov = AI_PROVIDERS[provId];
 
     state.apiKeys[provId] = key;
     if (key) {
         localStorage.setItem(prov.keyStorageKey, key);
-        showToast(`Chave do ${prov.name} salva com sucesso!`, 'success');
     } else {
         localStorage.removeItem(prov.keyStorageKey);
+    }
+
+    // Salva o modelo escolhido ou customizado
+    const chosenModel = customModel || selectedModel || prov.defaultModel;
+    state.configuredModels[provId] = chosenModel;
+    localStorage.setItem(prov.modelStorageKey, chosenModel);
+
+    showToast(`Configurações de ${prov.name} salvas com sucesso.`, 'success');
+
+    // Se adicionou a chave, auto-detecta imediatamente os modelos da conta
+    if (key) {
+        loadModelsForProvider(provId, key);
     }
 
     renderProviderModalTab();
@@ -350,20 +456,23 @@ function handleClearProviderKey() {
     const prov = AI_PROVIDERS[provId];
 
     state.apiKeys[provId] = '';
+    state.configuredModels[provId] = '';
     dom.provModalInput.value = '';
+    dom.provModalCustomModelInput.value = '';
     localStorage.removeItem(prov.keyStorageKey);
+    localStorage.removeItem(prov.modelStorageKey);
 
     renderProviderModalTab();
     updateConnectionsHeader();
     updateActiveEngineBadge();
-    showToast(`Chave do ${prov.name} removida`, 'info');
+    showToast(`Chave de ${prov.name} removida.`, 'info');
 }
 
-// LÓGICA DE FORJAR PROMPT (MULTI-MOTOR)
+// LÓGICA DE FORJAR PROMPT (MULTI-MOTOR COM MODELO DINÂMICO)
 async function handleForgePrompt() {
     const rawIdea = dom.rawIdeaInput.value.trim();
     if (!rawIdea) {
-        showToast('Digite uma ideia ou frase primeiro!', 'warning');
+        showToast('Digite um briefing ou ideia primeiro.', 'warning');
         dom.rawIdeaInput.focus();
         return;
     }
@@ -373,24 +482,25 @@ async function handleForgePrompt() {
     try {
         const provId = state.selectedForgingProvider;
         const apiKey = state.apiKeys[provId];
+        const activeModel = state.configuredModels[provId] || (AI_PROVIDERS[provId] ? AI_PROVIDERS[provId].defaultModel : null);
         let resultData = null;
-        let usedEngineName = 'Motor Estrutural Local';
+        let usedEngineName = 'Motor estrutural';
 
         if (provId !== 'offline' && apiKey) {
             try {
                 const prov = AI_PROVIDERS[provId];
-                usedEngineName = prov.name;
-                resultData = await forgePromptWithAI(provId, apiKey, rawIdea, state.selectedCategory, state.selectedTone);
+                usedEngineName = `${prov.name} (${activeModel})`;
+                resultData = await forgePromptWithAI(provId, apiKey, rawIdea, state.selectedCategory, state.selectedTone, activeModel);
             } catch (err) {
                 console.warn(`Erro no motor ${provId}, acionando motor offline:`, err);
-                showToast(`Falha na API (${err.message}). Usando motor estrutural offline.`, 'warning');
+                showToast(`Falha na chamada (${err.message}). Usando motor estrutural.`, 'warning');
                 resultData = generateOfflinePrompt(rawIdea, state.selectedCategory, state.selectedTone);
-                usedEngineName = 'Motor Estrutural (Fallback)';
+                usedEngineName = 'Motor estrutural';
             }
         } else {
             resultData = generateOfflinePrompt(rawIdea, state.selectedCategory, state.selectedTone);
             if (provId !== 'offline' && !apiKey) {
-                showToast(`O ${AI_PROVIDERS[provId].name} não tem chave salva. Gerando com motor offline inteligente!`, 'info');
+                showToast(`${AI_PROVIDERS[provId].name} sem chave cadastrada. Gerando com motor estrutural.`, 'info');
             }
         }
 
@@ -408,42 +518,39 @@ async function handleForgePrompt() {
         saveToHistory(resultData);
 
     } catch (err) {
-        console.error('Erro ao forjar prompt:', err);
-        showToast('Erro ao forjar prompt: ' + err.message, 'danger');
+        console.error('Erro ao estruturar prompt:', err);
+        showToast('Erro ao estruturar prompt: ' + err.message, 'danger');
     } finally {
         setGeneratingState(false);
     }
 }
 
-// Renderiza o resultado forjado
+// Renderiza o resultado
 function displayPromptResult(data) {
     dom.emptyState.style.display = 'none';
     dom.resultContent.style.display = 'flex';
 
-    dom.promptTitle.textContent = data.title || 'Prompt Mestre Gerado';
+    dom.promptTitle.textContent = data.title || 'Documento estruturado';
     
     const catObj = PROMPT_CATEGORIES[data.category] || PROMPT_CATEGORIES.coding;
     const toneObj = PROMPT_TONES[data.tone] || PROMPT_TONES.technical;
 
     dom.badgeCategory.textContent = catObj.name;
     dom.badgeTone.textContent = toneObj.name;
-    dom.badgeEngineUsed.textContent = `Gerador: ${data.engineUsed || 'PromptForge'}`;
+    dom.badgeEngineUsed.textContent = data.engineUsed || 'PromptForge';
 
     dom.promptTextDisplay.textContent = data.formattedPrompt;
 
     updateFavoriteButtonUI(data.isFavorite);
 
-    // Cards do Raio-X Educativo
+    // Notas Estruturais
     dom.xrayCardsContainer.innerHTML = '';
     if (data.educationalXray && data.educationalXray.length > 0) {
         data.educationalXray.forEach(item => {
             const card = document.createElement('div');
             card.className = 'xray-card';
             card.innerHTML = `
-                <div class="xray-card-title">
-                    <i data-lucide="check" style="width: 14px; height: 14px; color: #38bdf8;"></i>
-                    <span>${item.technique}</span>
-                </div>
+                <div class="xray-card-title">${item.technique}</div>
                 <div class="xray-card-desc">${item.explanation}</div>
             `;
             dom.xrayCardsContainer.appendChild(card);
@@ -457,7 +564,7 @@ function displayPromptResult(data) {
             const tipEl = document.createElement('div');
             tipEl.className = 'tip-item';
             tipEl.innerHTML = `
-                <i data-lucide="zap" style="width: 14px; height: 14px; flex-shrink: 0; margin-top: 2px;"></i>
+                <i data-lucide="arrow-right" style="width: 12px; height: 12px; flex-shrink: 0; color: var(--accent);"></i>
                 <span>${tip}</span>
             `;
             dom.quickTipsContainer.appendChild(tipEl);
@@ -493,44 +600,45 @@ function handleToggleFavoriteCurrent() {
         renderHistory();
     }
 
-    showToast(state.currentPromptData.isFavorite ? 'Salvo nos favoritos.' : 'Removido dos favoritos.', 'info');
+    showToast(state.currentPromptData.isFavorite ? 'Salvo no arquivo local.' : 'Removido dos salvos.', 'info');
 }
 
 function updateFavoriteButtonUI(isFav) {
     if (isFav) {
-        dom.favStarIcon.setAttribute('fill', '#f59e0b');
-        dom.favStarIcon.style.color = '#f59e0b';
-        dom.btnFavCurrent.querySelector('span').textContent = 'Favoritado';
+        dom.favStarIcon.setAttribute('fill', 'var(--accent)');
+        dom.favStarIcon.style.color = 'var(--accent)';
+        dom.btnFavCurrent.querySelector('span').textContent = 'Salvo';
     } else {
         dom.favStarIcon.removeAttribute('fill');
         dom.favStarIcon.style.color = 'currentColor';
-        dom.btnFavCurrent.querySelector('span').textContent = 'Favoritar';
+        dom.btnFavCurrent.querySelector('span').textContent = 'Salvar';
     }
 }
 
-// TESTE INDIVIDUAL RÁPIDO
+// TESTE INDIVIDUAL COM O MODELO ATIVO
 async function handleSingleTestPrompt() {
     if (!state.currentPromptData) return;
 
-    // Acha a primeira IA conectada ou a IA selecionada
     let provId = state.selectedForgingProvider !== 'offline' ? state.selectedForgingProvider : null;
     if (!provId || !state.apiKeys[provId]) {
         provId = Object.keys(state.apiKeys).find(p => !!state.apiKeys[p]);
     }
 
     if (!provId) {
-        showToast('Configure ao menos uma chave de IA para testar ao vivo!', 'warning');
+        showToast('Cadastre ao menos uma chave de modelo para testar.', 'warning');
         openConnectionsModal('gemini');
         return;
     }
 
     const prov = AI_PROVIDERS[provId];
-    dom.singleTestTitle.textContent = `Resposta em Tempo Real: ${prov.name}`;
+    const activeModel = state.configuredModels[provId] || prov.defaultModel;
+
+    dom.singleTestTitle.textContent = `Retorno do modelo: ${prov.name} (${activeModel})`;
     dom.playgroundArea.classList.add('open');
     dom.playgroundOutput.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 0.5rem; color: #93c5fd;">
-            <i data-lucide="loader-2" class="animate-spin" style="width: 18px; height: 18px;"></i>
-            <span>Enviando o prompt para ${prov.name}...</span>
+        <div style="display: flex; align-items: center; gap: 0.5rem; color: var(--ink-secondary);">
+            <i data-lucide="loader-2" class="animate-spin" style="width: 15px; height: 15px;"></i>
+            <span>Enviando documento para ${prov.name} (${activeModel})...</span>
         </div>
     `;
     refreshIcons();
@@ -541,45 +649,40 @@ async function handleSingleTestPrompt() {
             state.apiKeys[provId], 
             'Responda profissionalmente ao prompt com clareza e estrutura.', 
             state.currentPromptData.formattedPrompt, 
-            false
+            false,
+            activeModel
         );
         dom.playgroundOutput.textContent = response;
     } catch (err) {
         dom.playgroundOutput.innerHTML = `
-            <div style="color: #f87171;">
-                <b>Erro ao executar teste com ${prov.name}:</b> ${err.message}<br><br>
-                Verifique se a sua chave de API possui cotas e é válida.
+            <div style="color: var(--crimson);">
+                <b>Erro na resposta do modelo ${activeModel}:</b> ${err.message}<br><br>
+                Verifique se o modelo informado está habilitado e se sua chave de API possui cotas suficientes.
             </div>
         `;
     }
 }
 
-// =======================================================
-// CONSELHO DE IAS (DEBATE E CONSENSO CONJUNTO)
-// =======================================================
+// MESA DE REVISÃO E CONSENSO (CONSELHO DE IAS)
 async function handleCallCouncil() {
     if (!state.currentPromptData) return;
 
-    // Obtém quais IAs estão com chave conectada
     const connectedProviders = Object.keys(state.apiKeys).filter(p => !!state.apiKeys[p]);
 
-    // Requisito estrito: mínimo de 2 provedores
     if (connectedProviders.length < 2) {
-        showToast('O Conselho precisa de ao menos 2 IAs conectadas. Configure o Groq ou Gemini para continuar.', 'warning');
+        showToast('A Mesa de Revisão requer ao menos 2 modelos conectados.', 'warning');
         const missing = !state.apiKeys.groq ? 'groq' : 'gemini';
         openConnectionsModal(missing);
         return;
     }
 
-    // Abre a Sala do Conselho
     dom.councilArea.classList.add('open');
     dom.councilArea.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
-    // Reseta visual
     dom.councilSpinner.style.display = 'inline-block';
     dom.councilStatusText.textContent = `Consultando ${connectedProviders.length} modelos conectados...`;
     dom.councilProposalsGrid.innerHTML = `
-        <div style="color: var(--text-muted); font-size: 0.85rem; padding: 1rem;">
+        <div style="color: var(--ink-muted); font-size: 0.82rem; padding: 0.5rem;">
             Aguardando propostas individuais dos modelos...
         </div>
     `;
@@ -592,49 +695,48 @@ async function handleCallCouncil() {
             promptText: state.currentPromptData.formattedPrompt,
             connectedProviders: connectedProviders,
             apiKeys: state.apiKeys,
+            configuredModels: state.configuredModels,
             onProgress: (prog) => {
                 dom.councilStatusText.textContent = prog.text;
             }
         });
 
-        // FASE 1: Renderiza Propostas Individuais
+        // ETAPA 1: Propostas
         dom.councilProposalsGrid.innerHTML = '';
         councilResult.proposals.forEach(p => {
-            const prov = AI_PROVIDERS[p.providerId];
             const card = document.createElement('div');
             card.className = 'proposal-card';
             card.innerHTML = `
                 <div class="proposal-card-header">
-                    <span style="color: ${prov.badgeColor};">● ${p.providerName}</span>
-                    <span style="font-size: 0.7rem; color: var(--text-muted);">${prov.model}</span>
+                    <span>${p.providerName}</span>
+                    <span style="font-size: 0.72rem; color: var(--ink-muted);">${p.modelUsed}</span>
                 </div>
                 <div class="proposal-content">${escapeHtml(p.content)}</div>
             `;
             dom.councilProposalsGrid.appendChild(card);
         });
 
-        // FASE 2: Renderiza Debate
+        // ETAPA 2: Debate
         if (councilResult.debate) {
             dom.councilDebateSection.style.display = 'block';
             dom.councilDebateContent.textContent = councilResult.debate;
         }
 
-        // FASE 3: Renderiza Consenso Final
+        // ETAPA 3: Consenso
         if (councilResult.consensus) {
             dom.councilConsensusSection.style.display = 'flex';
             dom.councilConsensusContent.textContent = councilResult.consensus;
         }
 
-        // Status Final
         dom.councilSpinner.style.display = 'none';
-        dom.councilStatusText.textContent = `Sessão concluída. Consenso reunido a partir de ${councilResult.participatingCount} modelos.`;
-        showToast('Consenso unificado gerado.', 'success');
+        dom.councilStatusText.textContent = `Sessão concluída. Parecer unificado a partir de ${councilResult.participatingCount} modelos.`;
+        showToast('Parecer de consenso formulado.', 'success');
 
     } catch (err) {
-        console.error('Erro no Conselho de IAs:', err);
+        console.error('Erro na Mesa do Conselho:', err);
         dom.councilSpinner.style.display = 'none';
-        dom.councilStatusText.textContent = `Falha na sessão do conselho: ${err.message}`;
-        showToast('Erro no Conselho de IAs: ' + err.message, 'danger');
+        dom.councilStatusText.textContent = `Falha na consulta: ${err.message}`;
+        showToast('Erro na consulta do conselho: ' + err.message, 'danger');
     }
 
     refreshIcons();
@@ -644,7 +746,7 @@ function handleCopyConsensus() {
     const text = dom.councilConsensusContent.textContent;
     if (!text) return;
     navigator.clipboard.writeText(text).then(() => {
-        showToast('Resposta de consenso copiada.', 'success');
+        showToast('Parecer de consenso copiado.', 'success');
     }).catch(() => {
         showToast('Erro ao copiar.', 'danger');
     });
@@ -655,7 +757,7 @@ function escapeHtml(text) {
     return String(text).replace(/[&<>"']/g, m => map[m]);
 }
 
-// Histórico e Persistência
+// Histórico
 function saveToHistory(promptData) {
     state.history.unshift(promptData);
     if (state.history.length > 50) state.history.pop();
@@ -676,8 +778,8 @@ function renderHistory() {
 
     if (list.length === 0) {
         dom.historyList.innerHTML = `
-            <div style="text-align: center; padding: 2rem 1rem; color: var(--text-muted); font-size: 0.8rem;">
-                ${state.activeHistoryTab === 'favs' ? 'Nenhum prompt favoritado ainda.' : 'Nenhum prompt no histórico.'}
+            <div style="text-align: center; padding: 2rem 1rem; color: var(--ink-muted); font-size: 0.78rem;">
+                ${state.activeHistoryTab === 'favs' ? 'Nenhum documento salvo.' : 'Nenhum item recente.'}
             </div>
         `;
         return;
@@ -691,11 +793,11 @@ function renderHistory() {
                 ${item.title || item.rawIdea}
             </div>
             <div class="history-item-actions">
-                <button class="icon-btn-sm btn-item-fav ${item.isFavorite ? 'active-fav' : ''}" title="${item.isFavorite ? 'Desfavoritar' : 'Favoritar'}">
-                    <i data-lucide="star" style="width: 14px; height: 14px;" ${item.isFavorite ? 'fill="#f59e0b"' : ''}></i>
+                <button class="icon-btn-sm btn-item-fav ${item.isFavorite ? 'active-fav' : ''}" title="${item.isFavorite ? 'Remover' : 'Salvar'}">
+                    <i data-lucide="bookmark" style="width: 13px; height: 13px;" ${item.isFavorite ? 'fill="var(--accent)"' : ''}></i>
                 </button>
                 <button class="icon-btn-sm btn-item-del" title="Excluir">
-                    <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+                    <i data-lucide="trash-2" style="width: 13px; height: 13px;"></i>
                 </button>
             </div>
         `;
@@ -726,7 +828,7 @@ function renderHistory() {
             state.history = state.history.filter(h => h.id !== item.id);
             persistHistory();
             renderHistory();
-            showToast('Prompt removido do histórico', 'info');
+            showToast('Item removido.', 'info');
         });
 
         dom.historyList.appendChild(itemEl);
@@ -756,5 +858,5 @@ function showToast(message, type = 'info') {
     if (type === 'success') dom.toast.classList.add('toast-success');
     toastTimeout = setTimeout(() => {
         dom.toast.classList.remove('show');
-    }, 3500);
+    }, 3200);
 }

@@ -1,167 +1,179 @@
 /**
  * PromptForge - Engine Multi-Motor de Meta-Prompting & Conselho de IAs
- * Suporta Google Gemini, Groq (DeepSeek/Llama), OpenAI e Anthropic Claude.
+ * Suporta Google Gemini, Groq, OpenAI, Anthropic Claude e OpenRouter,
+ * com auto-detecção de modelos da conta (Pro/Flash/Previews) e suporte a IDs customizados.
  */
 
 const AI_PROVIDERS = {
     gemini: {
         id: 'gemini',
         name: 'Google Gemini',
-        model: 'gemini-2.5-flash',
-        fallbackModel: 'gemini-1.5-flash',
-        badgeColor: '#38bdf8',
-        tag: 'Grátis & Veloz',
+        defaultModel: 'gemini-2.5-flash',
         keyStorageKey: 'promptforge_key_gemini',
-        docsUrl: 'https://aistudio.google.com/app/apikey'
+        modelStorageKey: 'promptforge_model_gemini',
+        docsUrl: 'https://aistudio.google.com/app/apikey',
+        canDiscoverModels: true
     },
     groq: {
         id: 'groq',
-        name: 'Groq (DeepSeek / Llama)',
-        model: 'llama-3.3-70b-versatile',
-        fallbackModel: 'deepseek-r1-distill-llama-70b',
-        badgeColor: '#f97316',
-        tag: 'Ultra Rápido & Grátis',
+        name: 'Groq',
+        defaultModel: 'llama-3.3-70b-versatile',
         keyStorageKey: 'promptforge_key_groq',
-        docsUrl: 'https://console.groq.com/keys'
+        modelStorageKey: 'promptforge_model_groq',
+        docsUrl: 'https://console.groq.com/keys',
+        canDiscoverModels: true
     },
     openai: {
         id: 'openai',
-        name: 'OpenAI ChatGPT',
-        model: 'gpt-4o-mini',
-        fallbackModel: 'gpt-4o',
-        badgeColor: '#10b981',
-        tag: 'Padrão da Indústria',
+        name: 'OpenAI',
+        defaultModel: 'gpt-4o-mini',
         keyStorageKey: 'promptforge_key_openai',
-        docsUrl: 'https://platform.openai.com/api-keys'
+        modelStorageKey: 'promptforge_model_openai',
+        docsUrl: 'https://platform.openai.com/api-keys',
+        canDiscoverModels: true
     },
     claude: {
         id: 'claude',
         name: 'Anthropic Claude',
-        model: 'claude-3-5-haiku-20241022',
-        fallbackModel: 'claude-3-5-sonnet-20241022',
-        badgeColor: '#d97706',
-        tag: 'Especialista & Refinado',
+        defaultModel: 'claude-3-5-haiku-20241022',
         keyStorageKey: 'promptforge_key_claude',
-        docsUrl: 'https://console.anthropic.com/settings/keys'
+        modelStorageKey: 'promptforge_model_claude',
+        docsUrl: 'https://console.anthropic.com/settings/keys',
+        canDiscoverModels: false,
+        predefinedModels: [
+            { id: 'claude-3-7-sonnet', name: 'Claude 3.7 Sonnet (Mais recente)' },
+            { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet v2' },
+            { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku (Rápido)' },
+            { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus (Alta profundidade)' }
+        ]
+    },
+    openrouter: {
+        id: 'openrouter',
+        name: 'OpenRouter',
+        defaultModel: 'google/gemini-2.5-pro',
+        keyStorageKey: 'promptforge_key_openrouter',
+        modelStorageKey: 'promptforge_model_openrouter',
+        docsUrl: 'https://openrouter.ai/keys',
+        canDiscoverModels: true
     }
 };
 
 const PROMPT_CATEGORIES = {
     coding: {
         id: 'coding',
-        name: 'Programação & Tech',
+        name: 'Programação e tecnologia',
         icon: 'code-2',
-        defaultPersona: 'Desenvolvedor Sênior e Arquiteto de Software Especialista',
+        defaultPersona: 'Desenvolvedor sênior e arquiteto de software',
         contextBase: 'desenvolvimento de soluções robustas, código limpo, boas práticas, tratamento de erros e performance.',
-        outputFormat: 'Código comentado, explicação da lógica, instruções de execução e considerações de segurança/escalabilidade.'
+        outputFormat: 'Código comentado, explicação da lógica, instruções de execução e considerações de segurança.'
     },
     writing: {
         id: 'writing',
-        name: 'Redação & Copywriting',
+        name: 'Redação e conteúdo',
         icon: 'pen-tool',
-        defaultPersona: 'Copywriter Profissional e Redator Estratégico de Conteúdo',
+        defaultPersona: 'Redator editorial e estrategista de comunicação',
         contextBase: 'criação de textos de alto impacto, retenção de atenção, clareza editorial e persuasão ética.',
-        outputFormat: 'Estrutura clara com introdução atraente (gancho), corpo persuasivo, conclusão marcante e call to action (se aplicável).'
+        outputFormat: 'Estrutura clara com introdução atrativa, desenvolvimento consistente, conclusão pontual e orientações práticas.'
     },
     business: {
         id: 'business',
-        name: 'Negócios & Carreira',
+        name: 'Negócios e estratégia',
         icon: 'briefcase',
-        defaultPersona: 'Consultor de Estratégia Corporativa e Gestão de Alta Performance',
+        defaultPersona: 'Consultor de negócios e estratégia operacional',
         contextBase: 'tomada de decisão orientada a resultados, visão de mercado, mitigação de riscos e impacto no negócio.',
-        outputFormat: 'Sumário executivo, análise estruturada com pontos fortes e desafios, plano de ação acionável e métricas de sucesso (KPIs).'
+        outputFormat: 'Sumário executivo, análise com pontos fortes e desafios, plano acionável e métricas de acompanhamento.'
     },
     study: {
         id: 'study',
-        name: 'Estudo & Conhecimento',
+        name: 'Estudo e conhecimento',
         icon: 'graduation-cap',
-        defaultPersona: 'Professor Doutor e Tutor Didático Especialista',
+        defaultPersona: 'Professor e tutor especialista',
         contextBase: 'pedagogia ativa, simplificação de conceitos complexos através de analogias e metodologia Feynman.',
-        outputFormat: 'Conceito essencial simplificado, analogia prática do dia a dia, passo a passo de aplicação e exercícios/desafios práticos para fixação.'
+        outputFormat: 'Conceito essencial simplificado, analogia prática do dia a dia, passo a passo e exercícios para fixação.'
     },
     productivity: {
         id: 'productivity',
-        name: 'Produtividade & Rotina',
+        name: 'Produtividade e rotina',
         icon: 'check-circle-2',
-        defaultPersona: 'Especialista em Organização de Sistemas, Eficiência e Foco',
+        defaultPersona: 'Especialista em organização e eficiência operacional',
         contextBase: 'otimização de rotinas, clareza mental, priorização ágil e redução de atrito em tarefas.',
-        outputFormat: 'Checklist ordenado por prioridade, estimativa de tempo para cada etapa e dicas contra procrastinação.'
+        outputFormat: 'Checklist ordenado por prioridade, estimativa de tempo para cada etapa e recomendações contra dispersão.'
     }
 };
 
 const PROMPT_TONES = {
     technical: {
         id: 'technical',
-        name: 'Especialista Técnico',
-        description: 'Rigoroso, técnico, aprofundado e sem superficialidades'
+        name: 'Especialista técnico',
+        description: 'Aprofundado, preciso e sem superficialidades'
     },
     didactic: {
         id: 'didactic',
-        name: 'Didático & Detalhado',
+        name: 'Didático e detalhado',
         description: 'Paciente, com analogias claras e passo a passo acessível'
     },
     concise: {
         id: 'concise',
-        name: 'Direto & Objetivo',
+        name: 'Direto e objetivo',
         description: 'Sem enrolação, focado em respostas práticas e listas acionáveis'
     },
     creative: {
         id: 'creative',
-        name: 'Criativo & Inovador',
+        name: 'Criativo e inovador',
         description: 'Pensamento fora da caixa, engajante e inspirador'
     },
     human: {
         id: 'human',
-        name: 'Humano & Natural (Anti-IA)',
+        name: 'Humano e natural (Anti-IA)',
         description: 'Voz autêntica, sem clichês de IA, sem travessões e com ritmo variado'
     }
 };
 
 /**
- * Monta as instruções do Meta-Prompting
+ * Monta as instruções de engenharia do prompt mestre
  */
 function buildMetaPromptRequest(rawIdea, categoryKey, toneKey) {
     const category = PROMPT_CATEGORIES[categoryKey] || PROMPT_CATEGORIES.coding;
     const tone = PROMPT_TONES[toneKey] || PROMPT_TONES.technical;
 
     return `
-Você é o mais avançado Engenheiro de Prompts do mundo e seu trabalho é pegar uma ideia crua/simples de um usuário e transformá-la em um PROMPT MESTRE DE ALTA PERFORMANCE, além de educar o usuário sobre as técnicas que você utilizou.
+Você é um especialista em engenharia de prompts e seu trabalho é pegar uma ideia simples de um usuário e transformá-la em um PROMPT MESTRE DE ALTO DESEMPENHO, além de orientar o usuário sobre as técnicas aplicadas.
 
-Ideia bruta fornecida pelo usuário:
+Ideia fornecida pelo usuário:
 "${rawIdea}"
 
 Categoria selecionada: ${category.name}
 Tom de voz pretendido: ${tone.name} (${tone.description})
 
 Seu objetivo:
-1. Analisar a ideia bruta e preencher todas as lacunas de contexto que o usuário não mencionou (contexto de fundo, critérios de sucesso, regras restritivas).
-2. Criar um prompt de altíssimo nível, perfeitamente estruturado nos seguintes blocos obrigatórios:
-   - [PAPEL & PERSONA]: Quem a IA deve fingir ser com credenciais e mentalidade.
-   - [CONTEXTO & CENÁRIO]: O cenário enriquecido por trás da solicitação.
-   - [OBJETIVO PRINCIPAL]: A meta exata a ser alcançada.
-   - [INSTRUÇÕES PASSO A PASSO]: O que a IA deve cobrir em sequência.
-   - [RESTRIÇÕES & REGRAS]: O que a IA NÃO deve fazer (evitar respostas genéricas, proibições, escopo).
-   - [FORMATO DA RESPOSTA]: Como a saída deve ser entregue (Markdown, tabelas, código, tópicos).
+1. Analisar a ideia bruta e preencher as lacunas de contexto necessárias para uma boa execução.
+2. Criar um prompt profissional estruturado nos seguintes blocos:
+   - [PAPEL & PERSONA]: Especialidade e ponto de vista que a IA deve adotar.
+   - [CONTEXTO & CENÁRIO]: Situação real, público final e premissas do problema.
+   - [OBJETIVO PRINCIPAL]: A meta clara a ser alcançada.
+   - [ROTEIRO POR ETAPAS]: O que deve ser resolvido em sequência lógica.
+   - [O QUE EVITAR & RESTRIÇÕES]: O que não deve entrar no texto (respostas genéricas, rodeios ou termos vagos).
+   - [FORMATO DE ENTREGA]: Formato exato da resposta (Markdown, tópicos, tabela ou código).
 3. Aplicar diretrizes da Skill Humanizer (Linguagem Humana & Anti-Clichês de IA):
    - Proibir travessões (—) usados como conectores universais.
    - Proibir a estrutura de contraste vazia "não apenas X, mas também Y" ou "não é X, é Y".
    - Evitar termos robóticos e clichês de chatbot como "crucial", "robusto", "mergulhar", "paisagem", "testemunho", "no cerne".
-   - Variar naturalmente o tamanho das frases (evitar ritmo artificial de listas com rótulos em negrito quando o texto puder ser fluido).
+   - Variar naturalmente o tamanho das frases.
    - Eliminar introduções e conclusões óbvias de chatbot ("com certeza!", "espero ter ajudado!").
-4. Gerar um RAIO-X EDUCATIVO explicando ao usuário exatamente por que esse prompt evita respostas genéricas e quais técnicas foram aplicadas.
+4. Gerar NOTAS DE ENGENHARIA explicando ao usuário as técnicas utilizadas no prompt.
 
-Responda ESTRITAMENTE em formato JSON com o seguinte schema (não adicione blocos extras fora do JSON):
+Responda ESTRITAMENTE em formato JSON com o seguinte schema (não adicione texto fora do JSON):
 {
-  "title": "Um título curto e memorável para este prompt",
-  "formattedPrompt": "Texto completo do prompt mestre, formatado em Markdown com títulos e seções destacados",
+  "title": "Um título descritivo e claro para este prompt",
+  "formattedPrompt": "Texto completo do prompt mestre formatado em Markdown",
   "educationalXray": [
     {
-      "technique": "Nome da técnica aplicada (ex: Atribuição de Persona / Delimitação de Restrições / Few-Shot / Formatação Estrita)",
-      "explanation": "Explicação clara e didática de como essa técnica transformou a frase do usuário e por que ela evita respostas genéricas da IA."
+      "technique": "Nome da técnica aplicada (ex: Atribuição de papel / Delimitação de restrições / Roteiro lógico)",
+      "explanation": "Explicação prática de como essa técnica torna a resposta da IA precisa e útil."
     }
   ],
   "quickTips": [
-    "Dica prática 1 de como o usuário pode tirar ainda mais proveito ao interagir com a IA usando este prompt",
+    "Dica prática 1 para o usuário interagir melhor com este prompt",
     "Dica prática 2"
   ]
 }
@@ -169,28 +181,149 @@ Responda ESTRITAMENTE em formato JSON com o seguinte schema (não adicione bloco
 }
 
 /**
- * Cliente Universal para Chamadas de API aos diferentes provedores
+ * Descoberta e Listagem Automática de Modelos por Chave de API
+ * Consulta a API da conta e classifica os modelos priorizando versões Pro e topo de linha.
  */
-async function callUniversalAI(providerId, apiKey, systemPrompt, userMessage, jsonMode = false) {
+async function fetchAvailableModels(providerId, apiKey) {
+    if (!apiKey) return [];
+
+    try {
+        if (providerId === 'gemini') {
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            
+            const models = (data.models || [])
+                .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent'))
+                .map(m => {
+                    const id = m.name.replace('models/', '');
+                    return {
+                        id: id,
+                        name: m.displayName || id,
+                        isPro: id.includes('pro') || id.includes('ultra') || id.includes('3.')
+                    };
+                });
+
+            // Ordena: Pro e modelos mais recentes primeiro, seguidos por Flash
+            models.sort((a, b) => {
+                if (a.isPro && !b.isPro) return -1;
+                if (!a.isPro && b.isPro) return 1;
+                return b.id.localeCompare(a.id);
+            });
+
+            return models;
+        }
+
+        if (providerId === 'groq') {
+            const res = await fetch('https://api.groq.com/openai/v1/models', {
+                headers: { 'Authorization': `Bearer ${apiKey}` }
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+
+            const models = (data.data || []).map(m => ({
+                id: m.id,
+                name: m.id,
+                isPro: m.id.includes('70b') || m.id.includes('r1')
+            }));
+
+            models.sort((a, b) => {
+                if (a.isPro && !b.isPro) return -1;
+                if (!a.isPro && b.isPro) return 1;
+                return a.id.localeCompare(b.id);
+            });
+
+            return models;
+        }
+
+        if (providerId === 'openai') {
+            const res = await fetch('https://api.openai.com/v1/models', {
+                headers: { 'Authorization': `Bearer ${apiKey}` }
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+
+            const models = (data.data || [])
+                .filter(m => m.id.startsWith('gpt') || m.id.startsWith('o1') || m.id.startsWith('o3'))
+                .map(m => ({
+                    id: m.id,
+                    name: m.id,
+                    isPro: m.id === 'gpt-4o' || m.id.startsWith('o1') || m.id.startsWith('o3')
+                }));
+
+            models.sort((a, b) => {
+                if (a.isPro && !b.isPro) return -1;
+                if (!a.isPro && b.isPro) return 1;
+                return a.id.localeCompare(b.id);
+            });
+
+            return models;
+        }
+
+        if (providerId === 'openrouter') {
+            const res = await fetch('https://openrouter.ai/api/v1/models', {
+                headers: { 'Authorization': `Bearer ${apiKey}` }
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+
+            const models = (data.data || []).map(m => ({
+                id: m.id,
+                name: m.name || m.id,
+                isPro: m.id.includes('pro') || m.id.includes('sonnet') || m.id.includes('r1')
+            }));
+
+            models.sort((a, b) => {
+                if (a.isPro && !b.isPro) return -1;
+                if (!a.isPro && b.isPro) return 1;
+                return a.id.localeCompare(b.id);
+            });
+
+            return models.slice(0, 40); // Limita aos 40 principais para clareza
+        }
+
+        if (providerId === 'claude') {
+            return AI_PROVIDERS.claude.predefinedModels;
+        }
+
+        return [];
+    } catch (err) {
+        console.warn(`Não foi possível listar modelos de ${providerId}:`, err.message);
+        return [];
+    }
+}
+
+/**
+ * Cliente Universal de IA com suporte a modelo dinâmico ou customizado
+ */
+async function callUniversalAI(providerId, apiKey, systemPrompt, userMessage, jsonMode = false, overrideModel = null) {
     if (providerId === 'gemini') {
-        return callGemini(apiKey, systemPrompt, userMessage, jsonMode);
+        return callGemini(apiKey, systemPrompt, userMessage, jsonMode, overrideModel);
     } else if (providerId === 'groq') {
-        return callGroq(apiKey, systemPrompt, userMessage, jsonMode);
+        return callGroq(apiKey, systemPrompt, userMessage, jsonMode, overrideModel);
     } else if (providerId === 'openai') {
-        return callOpenAI(apiKey, systemPrompt, userMessage, jsonMode);
+        return callOpenAI(apiKey, systemPrompt, userMessage, jsonMode, overrideModel);
     } else if (providerId === 'claude') {
-        return callClaude(apiKey, systemPrompt, userMessage, jsonMode);
+        return callClaude(apiKey, systemPrompt, userMessage, jsonMode, overrideModel);
+    } else if (providerId === 'openrouter') {
+        return callOpenRouter(apiKey, systemPrompt, userMessage, jsonMode, overrideModel);
     } else {
         throw new Error(`Provedor desconhecido: ${providerId}`);
     }
 }
 
-// 1. Google Gemini API
-async function callGemini(apiKey, systemPrompt, userMessage, jsonMode) {
-    const models = ['gemini-2.5-flash', 'gemini-1.5-flash'];
+// 1. Google Gemini
+async function callGemini(apiKey, systemPrompt, userMessage, jsonMode, modelId) {
+    // Modelos com tentativa: modelo configurado pelo usuário -> fallback
+    const targetModel = modelId || AI_PROVIDERS.gemini.defaultModel;
+    const fallbackList = [targetModel, 'gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-1.5-flash'];
+    const tried = new Set();
     let lastError = null;
 
-    for (const model of models) {
+    for (const model of fallbackList) {
+        if (tried.has(model)) continue;
+        tried.add(model);
+
         try {
             const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
             const body = {
@@ -217,7 +350,7 @@ async function callGemini(apiKey, systemPrompt, userMessage, jsonMode) {
 
             const data = await res.json();
             const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (!text) throw new Error('Resposta vazia da API do Gemini');
+            if (!text) throw new Error('Resposta vazia do Gemini');
             return text;
         } catch (err) {
             lastError = err;
@@ -226,67 +359,55 @@ async function callGemini(apiKey, systemPrompt, userMessage, jsonMode) {
     throw lastError;
 }
 
-// 2. Groq Cloud API (OpenAI Compatible)
-async function callGroq(apiKey, systemPrompt, userMessage, jsonMode) {
-    const models = ['llama-3.3-70b-versatile', 'deepseek-r1-distill-llama-70b'];
-    let lastError = null;
-
-    for (const model of models) {
-        try {
-            const messages = [];
-            if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
-            messages.push({ role: 'user', content: userMessage });
-
-            const body = {
-                model: model,
-                messages: messages,
-                temperature: 0.7,
-                max_tokens: 2500
-            };
-            if (jsonMode) {
-                body.response_format = { type: 'json_object' };
-            }
-
-            const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify(body)
-            });
-
-            if (!res.ok) {
-                const errData = await res.json().catch(() => ({}));
-                throw new Error(errData.error?.message || `HTTP ${res.status}`);
-            }
-
-            const data = await res.json();
-            const text = data.choices?.[0]?.message?.content;
-            if (!text) throw new Error('Resposta vazia da API do Groq');
-            return text;
-        } catch (err) {
-            lastError = err;
-        }
-    }
-    throw lastError;
-}
-
-// 3. OpenAI API
-async function callOpenAI(apiKey, systemPrompt, userMessage, jsonMode) {
+// 2. Groq
+async function callGroq(apiKey, systemPrompt, userMessage, jsonMode, modelId) {
+    const targetModel = modelId || AI_PROVIDERS.groq.defaultModel;
     const messages = [];
     if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
     messages.push({ role: 'user', content: userMessage });
 
     const body = {
-        model: 'gpt-4o-mini',
+        model: targetModel,
         messages: messages,
         temperature: 0.7,
         max_tokens: 2500
     };
-    if (jsonMode) {
-        body.response_format = { type: 'json_object' };
+    if (jsonMode) body.response_format = { type: 'json_object' };
+
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error?.message || `HTTP ${res.status}`);
     }
+
+    const data = await res.json();
+    const text = data.choices?.[0]?.message?.content;
+    if (!text) throw new Error('Resposta vazia do Groq');
+    return text;
+}
+
+// 3. OpenAI
+async function callOpenAI(apiKey, systemPrompt, userMessage, jsonMode, modelId) {
+    const targetModel = modelId || AI_PROVIDERS.openai.defaultModel;
+    const messages = [];
+    if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
+    messages.push({ role: 'user', content: userMessage });
+
+    const body = {
+        model: targetModel,
+        messages: messages,
+        temperature: 0.7,
+        max_tokens: 2500
+    };
+    if (jsonMode) body.response_format = { type: 'json_object' };
 
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -308,16 +429,15 @@ async function callOpenAI(apiKey, systemPrompt, userMessage, jsonMode) {
     return text;
 }
 
-// 4. Anthropic Claude API
-async function callClaude(apiKey, systemPrompt, userMessage, jsonMode) {
+// 4. Anthropic Claude
+async function callClaude(apiKey, systemPrompt, userMessage, jsonMode, modelId) {
+    const targetModel = modelId || AI_PROVIDERS.claude.defaultModel;
     const body = {
-        model: 'claude-3-5-haiku-20241022',
+        model: targetModel,
         max_tokens: 2500,
-        messages: [{ role: 'user', content: (jsonMode ? `${userMessage}\nIMPORTANTE: Responda unicamente com JSON válido.` : userMessage) }]
+        messages: [{ role: 'user', content: (jsonMode ? `${userMessage}\nIMPORTANTE: Responda apenas com JSON válido.` : userMessage) }]
     };
-    if (systemPrompt) {
-        body.system = systemPrompt;
-    }
+    if (systemPrompt) body.system = systemPrompt;
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -341,43 +461,91 @@ async function callClaude(apiKey, systemPrompt, userMessage, jsonMode) {
     return text;
 }
 
+// 5. OpenRouter (Hub Universal de Modelos)
+async function callOpenRouter(apiKey, systemPrompt, userMessage, jsonMode, modelId) {
+    const targetModel = modelId || AI_PROVIDERS.openrouter.defaultModel;
+    const messages = [];
+    if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
+    messages.push({ role: 'user', content: userMessage });
+
+    const body = {
+        model: targetModel,
+        messages: messages,
+        temperature: 0.7,
+        max_tokens: 2500
+    };
+    if (jsonMode) body.response_format = { type: 'json_object' };
+
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+            'HTTP-Referer': 'https://promptforge.local',
+            'X-Title': 'PromptForge'
+        },
+        body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error?.message || `HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    const text = data.choices?.[0]?.message?.content;
+    if (!text) throw new Error('Resposta vazia do OpenRouter');
+    return text;
+}
+
 /**
- * Forja o prompt mestre usando qualquer motor configurado
+ * Forja o prompt mestre usando o motor e modelo ativo
  */
-async function forgePromptWithAI(providerId, apiKey, rawIdea, category, tone) {
+async function forgePromptWithAI(providerId, apiKey, rawIdea, category, tone, modelId = null) {
     const instruction = buildMetaPromptRequest(rawIdea, category, tone);
-    const rawResult = await callUniversalAI(providerId, apiKey, '', instruction, true);
-    
-    // Limpeza de blocos markdown de JSON
+    const rawResult = await callUniversalAI(providerId, apiKey, '', instruction, true, modelId);
     const cleanJson = rawResult.replace(/```json/g, '').replace(/```/g, '').trim();
     return JSON.parse(cleanJson);
 }
 
 /**
- * Conselho de IAs (Debate e Consenso Conjunto)
- * Executa as 3 fases: Propostas Individuais -> Debate & Crítica Cruzada -> Síntese de Consenso Final
+ * Executa a Mesa de Revisão e Consenso
  */
-async function runAiCouncil({ promptText, connectedProviders, apiKeys, onProgress }) {
+async function runAiCouncil({ promptText, connectedProviders, apiKeys, configuredModels = {}, onProgress }) {
     if (connectedProviders.length < 2) {
-        throw new Error('O Conselho de IAs exige pelo menos 2 motores de IA conectados.');
+        throw new Error('A Mesa de Revisão requer ao menos 2 modelos conectados.');
     }
 
-    // FASE 1: Propostas Individuais
-    if (onProgress) onProgress({ phase: 1, text: 'Fase 1/3: Coletando propostas iniciais de cada IA conectada...' });
+    // ETAPA 1: Propostas Individuais
+    if (onProgress) onProgress({ phase: 1, text: 'Etapa 1 de 3: Coletando propostas independentes de cada modelo...' });
     
     const individualPromises = connectedProviders.map(async (provId) => {
         const prov = AI_PROVIDERS[provId];
+        const modelToUse = configuredModels[provId] || prov.defaultModel;
         try {
             const resp = await callUniversalAI(
                 provId, 
                 apiKeys[provId], 
-                'Você é um membro sênior de um Conselho Consultivo de Inteligência Artificial. Forneça uma resposta sólida, fundamentada e estruturada para a demanda a seguir.',
+                'Você participa de uma mesa técnica de redação e estratégia. Forneça uma resposta sólida e estruturada para a demanda a seguir.',
                 promptText, 
-                false
+                false,
+                modelToUse
             );
-            return { providerId: provId, providerName: prov.name, content: resp, error: null };
+            return { 
+                providerId: provId, 
+                providerName: prov.name, 
+                modelUsed: modelToUse, 
+                content: resp, 
+                error: null 
+            };
         } catch (err) {
-            return { providerId: provId, providerName: prov.name, content: null, error: err.message };
+            return { 
+                providerId: provId, 
+                providerName: prov.name, 
+                modelUsed: modelToUse, 
+                content: null, 
+                error: err.message 
+            };
         }
     });
 
@@ -385,81 +553,80 @@ async function runAiCouncil({ promptText, connectedProviders, apiKeys, onProgres
     const validProposals = individualResults.filter(r => !r.error && r.content);
 
     if (validProposals.length === 0) {
-        throw new Error('Nenhuma das IAs conectadas conseguiu responder. Verifique as chaves de API.');
+        throw new Error('Nenhum dos modelos conectados conseguiu responder. Verifique as chaves e modelos configurados.');
     }
 
-    // FASE 2: Debate e Crítica Cruzada
-    if (onProgress) onProgress({ phase: 2, text: 'Fase 2/3: As IAs estão debatendo os pontos fortes e contrapontos entre si...' });
+    // ETAPA 2: Confronto de abordagens e pontos complementares
+    if (onProgress) onProgress({ phase: 2, text: 'Etapa 2 de 3: Confrontando abordagens e pontos complementares...' });
 
-    const debateSummaries = validProposals.map(p => `[Proposta de ${p.providerName}]:\n${p.content}`).join('\n\n---\n\n');
+    const debateSummaries = validProposals.map(p => `[Proposta de ${p.providerName} (${p.modelUsed})]:\n${p.content}`).join('\n\n---\n\n');
 
     const debatePrompt = `
-Você está participando da Fase de Debate do Conselho de IA. Abaixo estão as propostas apresentadas por diferentes IAs para o seguinte prompt:
+Você atua como mediador técnico de uma mesa de revisão. Abaixo estão as respostas apresentadas por diferentes modelos para o seguinte prompt:
 
 """
 ${promptText}
 """
 
-PROPOSTAS APRESENTADAS:
+RESPOSTAS APRESENTADAS:
 ${debateSummaries}
 
-SUA TAREFA NO DEBATE:
-1. Analise criticamente as propostas apresentadas por cada IA.
-2. Destaque quais pontos foram brilhantes e quais foram pontos cegos ou omitidos em cada uma.
-3. Aponte convergências essenciais e divergências que enriquecem o resultado final.
-Seja conciso, analítico e construtivo.
+SUA ANÁLISE:
+1. Compare objetivamente as soluções.
+2. Identifique pontos fortes específicos e omissões em cada abordagem.
+3. Aponte convergências e pontos complementares para a síntese final.
+Escreva de forma direta e sem jargões de bajulação.
 `.trim();
 
-    // Escolhe a primeira IA válida para conduzir a rodada de debate
-    const debaterProvider = validProposals[0].providerId;
+    const debater = validProposals[0];
     let debateResult = '';
     try {
         debateResult = await callUniversalAI(
-            debaterProvider, 
-            apiKeys[debaterProvider], 
-            'Atue como o Mediador de Debate do Conselho de Inteligência Artificial.',
+            debater.providerId, 
+            apiKeys[debater.providerId], 
+            'Atue como mediador técnico de uma mesa de revisão.',
             debatePrompt, 
-            false
+            false,
+            debater.modelUsed
         );
     } catch (e) {
-        debateResult = 'O debate considerou as perspectivas complementares de cada modelo, unificando precisão técnica e clareza prática.';
+        debateResult = 'As abordagens convergiram na solução principal, com complementos em detalhamento e regras práticas.';
     }
 
-    // FASE 3: Síntese e Consenso Final do Conselho
-    if (onProgress) onProgress({ phase: 3, text: 'Fase 3/3: Sintetizando a Resposta de Consenso Final unificada...' });
+    // ETAPA 3: Síntese e Parecer de Consenso
+    if (onProgress) onProgress({ phase: 3, text: 'Etapa 3 de 3: Sintetizando o parecer unificado de consenso...' });
 
-    // Escolhe a melhor IA disponível para sintetizar (preferência por Gemini ou OpenAI)
-    const synthesizerProvider = validProposals.find(p => p.providerId === 'gemini' || p.providerId === 'openai') 
-        ? (validProposals.find(p => p.providerId === 'gemini' || p.providerId === 'openai').providerId)
-        : validProposals[0].providerId;
+    // Prioriza Gemini Pro, OpenAI ou o modelo de maior capacidade disponível para síntese
+    const synthesizer = validProposals.find(p => p.providerId === 'gemini' || p.providerId === 'openai' || p.providerId === 'openrouter') || validProposals[0];
 
     const consensusPrompt = `
-Você é o Presidente Relator do Conselho de Inteligência Artificial.
-Sua missão máxima é gerar a RESPOSTA DE CONSENSO FINAL definitiva e harmonizada.
+Você é o relator responsável pelo parecer final da mesa de revisão.
+Sua missão é produzir o PARECER UNIFICADO DE CONSENSO definitivo.
 
 PROMPT ORIGINAL:
 """
 ${promptText}
 """
 
-CONTRIBUIÇÕES DAS IAS PARTICIPANTES:
+CONTRIBUIÇÕES DOS MODELOS:
 ${debateSummaries}
 
-NOTAS DO DEBATE:
+ANÁLISE COMPARATIVA:
 ${debateResult}
 
-DIRETRIZES PARA O CONSENSO FINAL:
-1. Não apenas resuma; crie a VERSÃO DEFINITIVA MAIS ELEVADA E COMPLETA possível, incorporando o que de melhor cada IA ofereceu.
-2. Elimine redundâncias, corrija eventuais falhas apontadas no debate e adicione rigor onde necessário.
-3. Entregue um resultado final pronto para ação, de altíssimo nível, impecavelmente formatado em Markdown com introdução clara, tópicos acionáveis e considerações estratégicas.
+DIRETRIZES:
+1. Una o que há de mais preciso em cada proposta, eliminando repetições.
+2. Apresente um resultado pronto para ação, claro, bem pontuado e formatado em Markdown.
+3. Não use introduções genéricas ("Com certeza!", "Aqui está"). Entregue a resposta diretamente.
 `.trim();
 
     const finalConsensus = await callUniversalAI(
-        synthesizerProvider,
-        apiKeys[synthesizerProvider],
-        'Você é a autoridade máxima de síntese do Conselho de IA. Gere apenas a resposta unificada de consenso final.',
+        synthesizer.providerId,
+        apiKeys[synthesizer.providerId],
+        'Você é o relator do parecer técnico unificado.',
         consensusPrompt,
-        false
+        false,
+        synthesizer.modelUsed
     );
 
     return {
@@ -478,17 +645,17 @@ function generateOfflinePrompt(rawIdea, categoryKey, toneKey) {
     const tone = PROMPT_TONES[toneKey] || PROMPT_TONES.technical;
 
     const formattedPrompt = `
-# PROMPT MESTRE: ${rawIdea.toUpperCase()}
+# PROMPT: ${rawIdea.toUpperCase()}
 
 ### 1. PAPEL & PERSONA
-Atue como um ${category.defaultPersona}. Você possui vasta experiência prática em ${category.contextBase}. Seu estilo de comunicação deve ser estritamente ${tone.name.toLowerCase()} (${tone.description.toLowerCase()}).
+Atue como um ${category.defaultPersona}. Você possui experiência prática em ${category.contextBase}. Seu estilo de comunicação deve ser ${tone.name.toLowerCase()} (${tone.description.toLowerCase()}).
 
 ### 2. CONTEXTO & CENÁRIO
 O usuário precisa de uma solução completa para: "${rawIdea}". 
-Considere que o objetivo precisa de profundidade, aplicando padrões profissionais da indústria, evitando superficialidades ou respostas genéricas.
+Considere que o objetivo precisa de profundidade técnica e foco em aplicação prática.
 
 ### 3. OBJETIVO PRINCIPAL
-Fornecer um plano detalhado, prático e executável que atenda plenamente à demanda: "${rawIdea}".
+Fornecer um plano detalhado, prático e executável que atenda à demanda: "${rawIdea}".
 
 ### 4. INSTRUÇÕES DETALHADAS
 1. Faça um diagnóstico inicial do desafio, mapeando premissas e pontos centrais.
@@ -503,7 +670,7 @@ Fornecer um plano detalhado, prático e executável que atenda plenamente à dem
 - Evite fórmulas prontas de chatbot, travessões excessivos e introduções repetitivas.
 
 ### 6. FORMATO DE SAÍDA
-${category.outputFormat} Use marcações em Markdown, negritos para ênfase e listas ordenadas para facilitar a leitura.
+${category.outputFormat} Use marcações em Markdown e listas ordenadas para facilitar a leitura.
 `.trim();
 
     return {
@@ -511,21 +678,21 @@ ${category.outputFormat} Use marcações em Markdown, negritos para ênfase e li
         formattedPrompt: formattedPrompt,
         educationalXray: [
             {
-                technique: 'Atribuição de Persona Especialista',
-                explanation: `Ao invés de apenas pedir "${rawIdea}", definimos a IA como "${category.defaultPersona}". Isso força o modelo a adotar vocabulário e padrões de quem domina o assunto.`
+                technique: 'Atribuição de papel prático',
+                explanation: `Ao invés de apenas pedir "${rawIdea}", definimos a IA como "${category.defaultPersona}". Isso orienta o vocabulário e a profundidade da resposta.`
             },
             {
-                technique: 'Delimitação de Restrições Negativas',
-                explanation: 'IAs tendem a dar introduções óbvias e conselhos genéricos. A seção de "Regras & Restrições" bloqueia enrolações e exige soluções práticas.'
+                technique: 'Delimitação de restrições',
+                explanation: 'Modelos tendem a dar introduções óbvias. A seção de regras bloqueia enrolações e exige soluções práticas.'
             },
             {
-                technique: 'Especificação do Formato de Saída',
-                explanation: 'Instruir exatamente como a resposta deve vir (Markdown, listas, tabelas) poupa seu tempo e garante legibilidade imediata.'
+                technique: 'Formato de entrega específico',
+                explanation: 'Instruir exatamente como a resposta deve vir poupa tempo e garante leitura direta.'
             }
         ],
         quickTips: [
-            'Dica: Se a resposta da IA for muito longa, responda apenas: "Resuma os pontos principais em uma tabela".',
-            'Dica: Conecte ao menos 2 IAs nas Configurações (ex: Gemini e Groq grátis) para desbloquear o Conselho de IAs com Debate e Consenso.'
+            'Dica: Se a resposta da IA for muito longa, responda: "Resuma os pontos principais em uma tabela".',
+            'Dica: Conecte suas chaves nas Configurações para que o sistema auto-detecte os modelos Pro e avançados da sua conta.'
         ],
         isOfflineFallback: true
     };
