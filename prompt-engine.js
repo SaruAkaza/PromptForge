@@ -9,6 +9,7 @@ const AI_PROVIDERS = {
         id: 'gemini',
         name: 'Google Gemini',
         defaultModel: 'gemini-2.5-flash',
+        topCuttingEdgeModel: 'gemini-2.5-pro',
         keyStorageKey: 'promptforge_key_gemini',
         modelStorageKey: 'promptforge_model_gemini',
         docsUrl: 'https://aistudio.google.com/app/apikey',
@@ -18,6 +19,7 @@ const AI_PROVIDERS = {
         id: 'groq',
         name: 'Groq',
         defaultModel: 'llama-3.3-70b-versatile',
+        topCuttingEdgeModel: 'llama-3.3-70b-versatile',
         keyStorageKey: 'promptforge_key_groq',
         modelStorageKey: 'promptforge_model_groq',
         docsUrl: 'https://console.groq.com/keys',
@@ -27,6 +29,7 @@ const AI_PROVIDERS = {
         id: 'openai',
         name: 'OpenAI',
         defaultModel: 'gpt-4o-mini',
+        topCuttingEdgeModel: 'gpt-4o',
         keyStorageKey: 'promptforge_key_openai',
         modelStorageKey: 'promptforge_model_openai',
         docsUrl: 'https://platform.openai.com/api-keys',
@@ -36,6 +39,7 @@ const AI_PROVIDERS = {
         id: 'claude',
         name: 'Anthropic Claude',
         defaultModel: 'claude-3-5-haiku-20241022',
+        topCuttingEdgeModel: 'claude-3-7-sonnet',
         keyStorageKey: 'promptforge_key_claude',
         modelStorageKey: 'promptforge_model_claude',
         docsUrl: 'https://console.anthropic.com/settings/keys',
@@ -51,6 +55,7 @@ const AI_PROVIDERS = {
         id: 'openrouter',
         name: 'OpenRouter',
         defaultModel: 'google/gemini-2.5-pro',
+        topCuttingEdgeModel: 'google/gemini-2.5-pro',
         keyStorageKey: 'promptforge_key_openrouter',
         modelStorageKey: 'promptforge_model_openrouter',
         docsUrl: 'https://openrouter.ai/keys',
@@ -509,19 +514,38 @@ async function forgePromptWithAI(providerId, apiKey, rawIdea, category, tone, mo
 }
 
 /**
+ * Determina o modelo mais recente / topo de linha para o debate conjunto
+ */
+function resolveCuttingEdgeModel(provId, configuredModels = {}, discoveredModels = {}) {
+    // 1. Se o usuário configurou um modelo customizado específico ou escolheu um Pro, usa ele
+    if (configuredModels[provId]) {
+        return configuredModels[provId];
+    }
+
+    // 2. Se a conta auto-detectou modelos autorizados, busca a melhor versão Pro / raciocínio
+    const discovered = discoveredModels[provId] || [];
+    const proModel = discovered.find(m => m.isPro);
+    if (proModel) return proModel.id;
+
+    // 3. Recorre ao modelo de ponta padrão definido
+    const prov = AI_PROVIDERS[provId];
+    return prov?.topCuttingEdgeModel || prov?.defaultModel;
+}
+
+/**
  * Executa a Mesa de Revisão e Consenso
  */
-async function runAiCouncil({ promptText, connectedProviders, apiKeys, configuredModels = {}, onProgress }) {
+async function runAiCouncil({ promptText, connectedProviders, apiKeys, configuredModels = {}, discoveredModels = {}, onProgress }) {
     if (connectedProviders.length < 2) {
         throw new Error('A Mesa de Revisão requer ao menos 2 modelos conectados.');
     }
 
     // ETAPA 1: Propostas Individuais
-    if (onProgress) onProgress({ phase: 1, text: 'Etapa 1 de 3: Coletando propostas independentes de cada modelo...' });
+    if (onProgress) onProgress({ phase: 1, text: 'Etapa 1 de 3: Coletando propostas independentes com os modelos mais atuais...' });
     
     const individualPromises = connectedProviders.map(async (provId) => {
         const prov = AI_PROVIDERS[provId];
-        const modelToUse = configuredModels[provId] || prov.defaultModel;
+        const modelToUse = resolveCuttingEdgeModel(provId, configuredModels, discoveredModels);
         try {
             const resp = await callUniversalAI(
                 provId, 

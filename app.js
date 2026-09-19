@@ -25,6 +25,7 @@ const state = {
     currentPromptData: null,
     history: JSON.parse(localStorage.getItem('promptforge_history') || '[]'),
     activeHistoryTab: 'recent',
+    activeMainTab: 'forger',
     activeModalProvider: 'gemini',
     isForging: false,
     isSingleTesting: false,
@@ -33,15 +34,24 @@ const state = {
 
 // Elementos DOM
 const dom = {
-    // Header
+    // Header & Navegação em Abas
+    navTabForger: document.getElementById('navTabForger'),
+    navTabRoundTable: document.getElementById('navTabRoundTable'),
+    navConnectedBadge: document.getElementById('navConnectedBadge'),
+    viewForger: document.getElementById('viewForger'),
+    viewRoundTable: document.getElementById('viewRoundTable'),
     btnOpenSettings: document.getElementById('btnOpenSettings'),
     connectionsStatusText: document.getElementById('connectionsStatusText'),
     btnOpenGuide: document.getElementById('btnOpenGuide'),
 
-    // Painel Esquerdo
+    // Painel Esquerdo (Forjador)
     rawIdeaInput: document.getElementById('rawIdeaInput'),
     forgingProviderSelect: document.getElementById('forgingProviderSelect'),
     activeEngineBadge: document.getElementById('activeEngineBadge'),
+    panelModelGroup: document.getElementById('panelModelGroup'),
+    panelModelSelect: document.getElementById('panelModelSelect'),
+    panelModelTypeTag: document.getElementById('panelModelTypeTag'),
+    panelCustomModelInput: document.getElementById('panelCustomModelInput'),
     categoryContainer: document.getElementById('categoryContainer'),
     toneSelect: document.getElementById('toneSelect'),
     btnForge: document.getElementById('btnForge'),
@@ -53,7 +63,7 @@ const dom = {
     tabRecent: document.getElementById('tabRecent'),
     tabFavs: document.getElementById('tabFavs'),
 
-    // Painel Direito
+    // Painel Direito (Forjador)
     emptyState: document.getElementById('emptyState'),
     resultContent: document.getElementById('resultContent'),
     promptTitle: document.getElementById('promptTitle'),
@@ -64,11 +74,12 @@ const dom = {
     xrayCardsContainer: document.getElementById('xrayCardsContainer'),
     quickTipsContainer: document.getElementById('quickTipsContainer'),
 
-    // Botões de Ação
+    // Botões de Ação do Forjador
     btnCopyPrompt: document.getElementById('btnCopyPrompt'),
     btnFavCurrent: document.getElementById('btnFavCurrent'),
     favStarIcon: document.getElementById('favStarIcon'),
     btnTestSinglePrompt: document.getElementById('btnTestSinglePrompt'),
+    btnSendToCouncil: document.getElementById('btnSendToCouncil'),
     btnCallCouncil: document.getElementById('btnCallCouncil'),
 
     // Playground Teste Individual
@@ -77,7 +88,7 @@ const dom = {
     playgroundOutput: document.getElementById('playgroundOutput'),
     btnClosePlayground: document.getElementById('btnClosePlayground'),
 
-    // Mesa de Revisão (Conselho de IAs)
+    // Mesa de Revisão Integrada (Dentro do Forjador)
     councilArea: document.getElementById('councilArea'),
     btnCloseCouncil: document.getElementById('btnCloseCouncil'),
     councilStatus: document.getElementById('councilStatus'),
@@ -89,6 +100,27 @@ const dom = {
     councilConsensusSection: document.getElementById('councilConsensusSection'),
     councilConsensusContent: document.getElementById('councilConsensusContent'),
     btnCopyConsensus: document.getElementById('btnCopyConsensus'),
+
+    // Tela Exclusiva: Mesa Redonda (Debate entre IAs)
+    roundTableQuestionInput: document.getElementById('roundTableQuestionInput'),
+    roundTableParticipantsList: document.getElementById('roundTableParticipantsList'),
+    rtParticipantCountTag: document.getElementById('rtParticipantCountTag'),
+    rtNeedMoreModelsWarning: document.getElementById('rtNeedMoreModelsWarning'),
+    linkOpenSettingsFromRT: document.getElementById('linkOpenSettingsFromRT'),
+    btnStartRoundTable: document.getElementById('btnStartRoundTable'),
+    roundTableEmptyState: document.getElementById('roundTableEmptyState'),
+    roundTableResultContent: document.getElementById('roundTableResultContent'),
+    rtHeaderModelCount: document.getElementById('rtHeaderModelCount'),
+    btnCopyRoundTableConsensus: document.getElementById('btnCopyRoundTableConsensus'),
+    btnCopyRtConsensusInline: document.getElementById('btnCopyRtConsensusInline'),
+    rtStatusStepper: document.getElementById('rtStatusStepper'),
+    rtSpinner: document.getElementById('rtSpinner'),
+    rtStatusText: document.getElementById('rtStatusText'),
+    rtProposalsGrid: document.getElementById('rtProposalsGrid'),
+    rtDebateSection: document.getElementById('rtDebateSection'),
+    rtDebateContent: document.getElementById('rtDebateContent'),
+    rtConsensusSection: document.getElementById('rtConsensusSection'),
+    rtConsensusContent: document.getElementById('rtConsensusContent'),
 
     // Modal de Conexões
     settingsModal: document.getElementById('settingsModal'),
@@ -118,7 +150,9 @@ document.addEventListener('DOMContentLoaded', () => {
     initCategories();
     initTones();
     initForgingProviderSelect();
+    renderPanelModelControls();
     updateConnectionsHeader();
+    renderRoundTableParticipants();
     renderHistory();
     setupEventListeners();
     refreshIcons();
@@ -176,11 +210,13 @@ function initTones() {
 function initForgingProviderSelect() {
     dom.forgingProviderSelect.value = state.selectedForgingProvider;
     updateActiveEngineBadge();
+    renderPanelModelControls();
 
     dom.forgingProviderSelect.addEventListener('change', (e) => {
         state.selectedForgingProvider = e.target.value;
         localStorage.setItem('promptforge_selected_provider', e.target.value);
         updateActiveEngineBadge();
+        renderPanelModelControls();
     });
 }
 
@@ -201,16 +237,277 @@ function updateActiveEngineBadge() {
     dom.activeEngineBadge.style.color = hasKey ? 'var(--sage)' : 'var(--ink-muted)';
 }
 
+// Alternância de Abas Principais (Forjador vs Mesa Redonda)
+function switchMainTab(tabName) {
+    state.activeMainTab = tabName;
+    if (tabName === 'forger') {
+        dom.navTabForger.classList.add('active');
+        dom.navTabRoundTable.classList.remove('active');
+        dom.viewForger.classList.add('active');
+        dom.viewForger.style.display = 'grid';
+        dom.viewRoundTable.classList.remove('active');
+        dom.viewRoundTable.style.display = 'none';
+    } else {
+        dom.navTabRoundTable.classList.add('active');
+        dom.navTabForger.classList.remove('active');
+        dom.viewRoundTable.classList.add('active');
+        dom.viewRoundTable.style.display = 'grid';
+        dom.viewForger.classList.remove('active');
+        dom.viewForger.style.display = 'none';
+        renderRoundTableParticipants();
+    }
+    refreshIcons();
+}
+
+// Renderiza o seletor de modelos de raciocínio no painel do Forjador
+function renderPanelModelControls() {
+    const provId = state.selectedForgingProvider;
+    if (provId === 'offline') {
+        if (dom.panelModelGroup) dom.panelModelGroup.style.display = 'none';
+        return;
+    }
+
+    if (dom.panelModelGroup) dom.panelModelGroup.style.display = 'block';
+    const prov = AI_PROVIDERS[provId];
+    if (!prov) return;
+
+    dom.panelModelSelect.innerHTML = '';
+    const models = state.discoveredModels[provId] || prov.predefinedModels || [
+        { id: prov.topCuttingEdgeModel || prov.defaultModel, name: prov.topCuttingEdgeModel || prov.defaultModel, isPro: true },
+        { id: prov.defaultModel, name: prov.defaultModel, isPro: false }
+    ];
+
+    models.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = m.name + (m.isPro ? ' [Raciocínio / Pro]' : '');
+        dom.panelModelSelect.appendChild(opt);
+    });
+
+    const activeModel = state.configuredModels[provId] || prov.defaultModel;
+    const isCustom = !models.some(m => m.id === activeModel);
+
+    if (isCustom && activeModel) {
+        dom.panelCustomModelInput.value = activeModel;
+    } else {
+        dom.panelModelSelect.value = activeModel;
+        dom.panelCustomModelInput.value = '';
+    }
+
+    updatePanelModelTypeTag(activeModel);
+}
+
+function updatePanelModelTypeTag(modelId) {
+    if (!dom.panelModelTypeTag) return;
+    const lower = (modelId || '').toLowerCase();
+    const isPro = lower.includes('pro') || lower.includes('ultra') || lower.includes('r1') || lower.includes('o1') || lower.includes('o3') || lower.includes('sonnet');
+    dom.panelModelTypeTag.textContent = isPro ? 'Raciocínio / Pro' : 'Rápido (Flash)';
+    dom.panelModelTypeTag.style.color = isPro ? 'var(--accent)' : 'var(--ink-muted)';
+}
+
+function handlePanelModelSelectChange() {
+    const provId = state.selectedForgingProvider;
+    const prov = AI_PROVIDERS[provId];
+    if (!prov) return;
+
+    const chosen = dom.panelModelSelect.value;
+    state.configuredModels[provId] = chosen;
+    dom.panelCustomModelInput.value = '';
+    localStorage.setItem(prov.modelStorageKey, chosen);
+
+    updatePanelModelTypeTag(chosen);
+    updateActiveEngineBadge();
+    renderRoundTableParticipants();
+    if (state.activeModalProvider === provId) {
+        renderModelsDropdown(provId);
+    }
+    showToast(`Modelo alterado para ${chosen}`, 'info');
+}
+
+function handlePanelCustomModelInputChange() {
+    const provId = state.selectedForgingProvider;
+    const prov = AI_PROVIDERS[provId];
+    if (!prov) return;
+
+    const custom = dom.panelCustomModelInput.value.trim();
+    const chosen = custom || dom.panelModelSelect.value || prov.defaultModel;
+    state.configuredModels[provId] = chosen;
+    localStorage.setItem(prov.modelStorageKey, chosen);
+
+    updatePanelModelTypeTag(chosen);
+    updateActiveEngineBadge();
+    renderRoundTableParticipants();
+}
+
+// Renderiza a lista de participantes da Mesa Redonda
+function renderRoundTableParticipants() {
+    if (!dom.roundTableParticipantsList) return;
+    const connectedProviders = Object.keys(state.apiKeys).filter(p => !!state.apiKeys[p]);
+
+    if (connectedProviders.length < 2) {
+        if (dom.rtNeedMoreModelsWarning) dom.rtNeedMoreModelsWarning.style.display = 'block';
+        if (dom.btnStartRoundTable) {
+            dom.btnStartRoundTable.disabled = true;
+            dom.btnStartRoundTable.style.opacity = '0.5';
+            dom.btnStartRoundTable.title = 'Conecte ao menos 2 modelos para iniciar';
+        }
+    } else {
+        if (dom.rtNeedMoreModelsWarning) dom.rtNeedMoreModelsWarning.style.display = 'none';
+        if (dom.btnStartRoundTable) {
+            dom.btnStartRoundTable.disabled = false;
+            dom.btnStartRoundTable.style.opacity = '1';
+            dom.btnStartRoundTable.title = `Confrontar propostas de ${connectedProviders.length} modelos`;
+        }
+    }
+
+    if (dom.rtParticipantCountTag) {
+        dom.rtParticipantCountTag.textContent = `${connectedProviders.length} modelos disponíveis`;
+    }
+
+    dom.roundTableParticipantsList.innerHTML = '';
+    if (connectedProviders.length === 0) {
+        dom.roundTableParticipantsList.innerHTML = `
+            <div style="font-size: 0.78rem; color: var(--ink-muted); padding: 0.5rem 0;">
+                Nenhum modelo conectado ainda. Clique em 'Conectar modelos' acima.
+            </div>
+        `;
+        return;
+    }
+
+    connectedProviders.forEach(provId => {
+        const prov = AI_PROVIDERS[provId];
+        const modelToUse = resolveCuttingEdgeModel(provId, state.configuredModels, state.discoveredModels);
+        const chip = document.createElement('div');
+        chip.className = 'participant-chip';
+        chip.innerHTML = `
+            <div class="participant-chip-left">
+                <span class="participant-chip-status"></span>
+                <span>${prov.name}</span>
+            </div>
+            <span class="participant-chip-model" title="Versão mais recente / raciocínio">${modelToUse}</span>
+        `;
+        dom.roundTableParticipantsList.appendChild(chip);
+    });
+}
+
+// Dispara a Mesa Redonda a partir da aba dedicada
+async function handleStartRoundTable() {
+    const question = dom.roundTableQuestionInput.value.trim();
+    if (!question) {
+        showToast('Digite uma demanda ou pergunta para a Mesa Redonda.', 'warning');
+        dom.roundTableQuestionInput.focus();
+        return;
+    }
+
+    const connectedProviders = Object.keys(state.apiKeys).filter(p => !!state.apiKeys[p]);
+    if (connectedProviders.length < 2) {
+        showToast('A Mesa Redonda requer ao menos 2 modelos conectados.', 'warning');
+        openConnectionsModal();
+        return;
+    }
+
+    dom.roundTableEmptyState.style.display = 'none';
+    dom.roundTableResultContent.style.display = 'flex';
+    dom.roundTableResultContent.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    dom.rtSpinner.style.display = 'inline-block';
+    dom.rtStatusText.textContent = `Consultando ${connectedProviders.length} modelos com as versões mais atuais...`;
+    dom.rtHeaderModelCount.textContent = `${connectedProviders.length} modelos em sessão`;
+
+    dom.rtProposalsGrid.innerHTML = `
+        <div style="color: var(--ink-muted); font-size: 0.82rem; padding: 0.5rem;">
+            Aguardando propostas individuais formuladas pelas versões mais recentes...
+        </div>
+    `;
+    dom.rtDebateSection.style.display = 'none';
+    dom.rtConsensusSection.style.display = 'none';
+    refreshIcons();
+
+    try {
+        const councilResult = await runAiCouncil({
+            promptText: question,
+            connectedProviders: connectedProviders,
+            apiKeys: state.apiKeys,
+            configuredModels: state.configuredModels,
+            discoveredModels: state.discoveredModels,
+            onProgress: (prog) => {
+                dom.rtStatusText.textContent = prog.text;
+            }
+        });
+
+        // ETAPA 1: Propostas
+        dom.rtProposalsGrid.innerHTML = '';
+        councilResult.proposals.forEach(p => {
+            const card = document.createElement('div');
+            card.className = 'proposal-card';
+            card.innerHTML = `
+                <div class="proposal-card-header">
+                    <span>${p.providerName}</span>
+                    <span style="font-size: 0.72rem; color: var(--accent);">${p.modelUsed}</span>
+                </div>
+                <div class="proposal-content">${escapeHtml(p.content)}</div>
+            `;
+            dom.rtProposalsGrid.appendChild(card);
+        });
+
+        // ETAPA 2: Debate
+        if (councilResult.debate) {
+            dom.rtDebateSection.style.display = 'block';
+            dom.rtDebateContent.textContent = councilResult.debate;
+        }
+
+        // ETAPA 3: Consenso
+        if (councilResult.consensus) {
+            dom.rtConsensusSection.style.display = 'flex';
+            dom.rtConsensusContent.textContent = councilResult.consensus;
+        }
+
+        dom.rtSpinner.style.display = 'none';
+        dom.rtStatusText.textContent = `Sessão concluída. Parecer unificado gerado a partir de ${councilResult.participatingCount} modelos.`;
+        showToast('Parecer de consenso formulado.', 'success');
+
+    } catch (err) {
+        console.error('Erro na Mesa Redonda:', err);
+        dom.rtSpinner.style.display = 'none';
+        dom.rtStatusText.textContent = `Falha na consulta: ${err.message}`;
+        showToast('Erro na Mesa Redonda: ' + err.message, 'danger');
+    }
+
+    refreshIcons();
+}
+
+// Copiar Parecer da Mesa Redonda
+function handleCopyRoundTableConsensus() {
+    const text = dom.rtConsensusContent.textContent;
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+        showToast('Parecer da Mesa Redonda copiado com sucesso.', 'success');
+    }).catch(() => {
+        showToast('Erro ao copiar parecer.', 'danger');
+    });
+}
+
+// Transfere o prompt mestre do Forjador para a Mesa Redonda
+function handleSendToRoundTable() {
+    if (!state.currentPromptData) return;
+    dom.roundTableQuestionInput.value = state.currentPromptData.formattedPrompt;
+    switchMainTab('roundtable');
+    showToast('Prompt transferido para a Mesa Redonda. Inicie o debate.', 'info');
+}
+
 // Atualiza contador de conexões no cabeçalho
 function updateConnectionsHeader() {
     const connectedCount = Object.keys(state.apiKeys).filter(p => !!state.apiKeys[p]).length;
     dom.connectionsStatusText.textContent = `Modelos (${connectedCount}/5 conectados)`;
+    if (dom.navConnectedBadge) {
+        dom.navConnectedBadge.textContent = connectedCount;
+    }
     
     if (connectedCount >= 2) {
         dom.btnOpenSettings.style.borderColor = 'var(--border-strong)';
         dom.btnOpenSettings.style.color = 'var(--accent)';
-        dom.btnCallCouncil.disabled = false;
-        dom.btnCallCouncil.title = `Mesa do conselho (${connectedCount} modelos conectados)`;
+        if (dom.btnSendToCouncil) dom.btnSendToCouncil.disabled = false;
+        if (dom.btnCallCouncil) dom.btnCallCouncil.disabled = false;
     } else if (connectedCount === 1) {
         dom.btnOpenSettings.style.borderColor = 'var(--border)';
         dom.btnOpenSettings.style.color = 'var(--sage)';
@@ -218,6 +515,7 @@ function updateConnectionsHeader() {
         dom.btnOpenSettings.style.borderColor = 'var(--border)';
         dom.btnOpenSettings.style.color = 'var(--ink-secondary)';
     }
+    renderRoundTableParticipants();
 }
 
 // Event Listeners Gerais
@@ -317,6 +615,52 @@ function setupEventListeners() {
     dom.btnGotItGuide.addEventListener('click', () => {
         dom.guideModal.classList.remove('open');
     });
+
+    // Alternância de Abas Principais (Forjador vs Mesa Redonda)
+    if (dom.navTabForger) {
+        dom.navTabForger.addEventListener('click', () => switchMainTab('forger'));
+    }
+    if (dom.navTabRoundTable) {
+        dom.navTabRoundTable.addEventListener('click', () => switchMainTab('roundtable'));
+    }
+
+    // Seletor de Modelo Inline no Forjador
+    if (dom.panelModelSelect) {
+        dom.panelModelSelect.addEventListener('change', handlePanelModelSelectChange);
+    }
+    if (dom.panelCustomModelInput) {
+        dom.panelCustomModelInput.addEventListener('input', handlePanelCustomModelInputChange);
+    }
+
+    // Enviar para Mesa Redonda a partir do Forjador
+    if (dom.btnSendToCouncil) {
+        dom.btnSendToCouncil.addEventListener('click', handleSendToRoundTable);
+    }
+
+    // Mesa Redonda
+    if (dom.btnStartRoundTable) {
+        dom.btnStartRoundTable.addEventListener('click', handleStartRoundTable);
+    }
+    if (dom.btnCopyRoundTableConsensus) {
+        dom.btnCopyRoundTableConsensus.addEventListener('click', handleCopyRoundTableConsensus);
+    }
+    if (dom.btnCopyRtConsensusInline) {
+        dom.btnCopyRtConsensusInline.addEventListener('click', handleCopyRoundTableConsensus);
+    }
+    if (dom.linkOpenSettingsFromRT) {
+        dom.linkOpenSettingsFromRT.addEventListener('click', (e) => {
+            e.preventDefault();
+            openConnectionsModal();
+        });
+    }
+
+    // Exemplos rápidos da Mesa Redonda
+    document.querySelectorAll('.rt-example-pill').forEach(pill => {
+        pill.addEventListener('click', () => {
+            dom.roundTableQuestionInput.value = pill.dataset.text;
+            showToast('Pergunta carregada na Mesa Redonda.', 'info');
+        });
+    });
 }
 
 // Modal de Conexões: Renderização da Aba
@@ -412,6 +756,8 @@ async function loadModelsForProvider(provId, key) {
                 renderModelsDropdown(provId);
             }
             updateActiveEngineBadge();
+            renderPanelModelControls();
+            renderRoundTableParticipants();
         } else {
             dom.provModelDetectTag.textContent = 'Modelos padrão ativos';
         }
@@ -449,6 +795,8 @@ function handleSaveProviderKey() {
     renderProviderModalTab();
     updateConnectionsHeader();
     updateActiveEngineBadge();
+    renderPanelModelControls();
+    renderRoundTableParticipants();
 }
 
 function handleClearProviderKey() {
@@ -465,6 +813,8 @@ function handleClearProviderKey() {
     renderProviderModalTab();
     updateConnectionsHeader();
     updateActiveEngineBadge();
+    renderPanelModelControls();
+    renderRoundTableParticipants();
     showToast(`Chave de ${prov.name} removida.`, 'info');
 }
 

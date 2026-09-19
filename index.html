@@ -19,10 +19,24 @@
       <h1 class="brand-title">PromptForge</h1>
       <span class="brand-badge">Desktop</span>
     </div>
+
+    <!-- Navegação Principal em Abas -->
+    <nav class="main-mode-nav">
+      <button id="navTabForger" class="mode-nav-btn active">
+        <i data-lucide="feather" style="width: 15px; height: 15px;"></i>
+        <span>Forjador de Prompts</span>
+      </button>
+      <button id="navTabRoundTable" class="mode-nav-btn">
+        <i data-lucide="users" style="width: 15px; height: 15px;"></i>
+        <span>Mesa Redonda (Debate entre IAs)</span>
+        <span id="navConnectedBadge" class="nav-count-badge">0</span>
+      </button>
+    </nav>
+
     <div class="header-actions">
       <button id="btnOpenSettings" class="btn-ghost" title="Configurar chaves dos modelos">
         <i data-lucide="sliders-horizontal" style="width: 15px; height: 15px;"></i>
-        <span id="connectionsStatusText">Modelos (0/4 conectados)</span>
+        <span id="connectionsStatusText">Modelos (0/5 conectados)</span>
       </button>
       <button id="btnOpenGuide" class="btn-ghost" title="Princípios de estruturação">
         <i data-lucide="book-open" style="width: 15px; height: 15px;"></i>
@@ -34,43 +48,61 @@
   <!-- Estrutura Principal -->
   <main class="app-container">
     
-    <!-- Painel Esquerdo: Briefing e Parâmetros -->
-    <section class="panel">
-      <div class="input-section">
-        <div>
-          <div class="section-label">
-            <span>Briefing inicial</span>
+    <!-- View 1: Forjador de Prompts -->
+    <div id="viewForger" class="app-view-grid active">
+      
+      <!-- Painel Esquerdo: Briefing e Parâmetros -->
+      <section class="panel">
+        <div class="input-section">
+          <div>
+            <div class="section-label">
+              <span>Briefing inicial</span>
+            </div>
+            <div class="textarea-wrapper">
+              <textarea 
+                id="rawIdeaInput" 
+                class="prompt-textarea" 
+                placeholder="Descreva o que você precisa resolver, planejar ou redigir..."
+              ></textarea>
+            </div>
+            <div class="quick-examples">
+              <span class="example-pill" data-text="Aprender SQL para análise de dados do zero" data-cat="study" data-tone="didactic">Aprender SQL</span>
+              <span class="example-pill" data-text="Artigo profissional sobre impacto de tecnologia no trabalho" data-cat="writing" data-tone="human">Artigo profissional</span>
+              <span class="example-pill" data-text="Função Python para ler dados de um CSV e gerar gráficos" data-cat="coding" data-tone="technical">Script Python</span>
+              <span class="example-pill" data-text="Plano de transição de carreira para a área de tecnologia em 6 meses" data-cat="business" data-tone="concise">Plano de carreira</span>
+            </div>
           </div>
-          <div class="textarea-wrapper">
-            <textarea 
-              id="rawIdeaInput" 
-              class="prompt-textarea" 
-              placeholder="Descreva o que você precisa resolver, planejar ou redigir..."
-            ></textarea>
-          </div>
-          <div class="quick-examples">
-            <span class="example-pill" data-text="Aprender SQL para análise de dados do zero" data-cat="study" data-tone="didactic">Aprender SQL</span>
-            <span class="example-pill" data-text="Artigo profissional sobre impacto de tecnologia no trabalho" data-cat="writing" data-tone="human">Artigo profissional</span>
-            <span class="example-pill" data-text="Função Python para ler dados de um CSV e gerar gráficos" data-cat="coding" data-tone="technical">Script Python</span>
-            <span class="example-pill" data-text="Plano de transição de carreira para a área de tecnologia em 6 meses" data-cat="business" data-tone="concise">Plano de carreira</span>
-          </div>
-        </div>
 
-        <!-- Seletor do Modelo Gerador -->
-        <div>
-          <div class="section-label">
-            <span>Modelo gerador</span>
-            <span id="activeEngineBadge" style="font-size: 0.72rem; color: var(--ink-secondary);">Google Gemini</span>
+          <!-- Seletor do Provedor da IA -->
+          <div>
+            <div class="section-label">
+              <span>Provedor da IA</span>
+              <span id="activeEngineBadge" style="font-size: 0.72rem; color: var(--ink-secondary);">Google Gemini</span>
+            </div>
+            <select id="forgingProviderSelect" class="custom-select">
+              <option value="gemini">Google Gemini</option>
+              <option value="groq">Groq</option>
+              <option value="openai">OpenAI</option>
+              <option value="claude">Anthropic Claude</option>
+              <option value="openrouter">OpenRouter</option>
+              <option value="offline">Motor local estruturado</option>
+            </select>
+
+            <!-- Seletor Direto de Modelo e Raciocínio (Pro/Thinking) -->
+            <div id="panelModelGroup" style="margin-top: 0.65rem;">
+              <div class="section-label">
+                <span>Modelo ativo / Raciocínio</span>
+                <span id="panelModelTypeTag" style="font-size: 0.7rem; color: var(--accent);">Versão Pro</span>
+              </div>
+              <select id="panelModelSelect" class="custom-select" style="margin-bottom: 0.45rem;">
+                <!-- Injetado dinamicamente via JS com tags [Raciocínio/Pro] -->
+              </select>
+              <div class="section-label" style="margin-top: 0.35rem; margin-bottom: 0.25rem;">
+                <span>ID de modelo customizado (opcional)</span>
+              </div>
+              <input type="text" id="panelCustomModelInput" class="modal-input" style="font-size: 0.78rem; padding: 0.5rem 0.75rem; margin-bottom: 0;" placeholder="Ex: gemini-2.5-pro, o1, etc.">
+            </div>
           </div>
-          <select id="forgingProviderSelect" class="custom-select">
-            <option value="gemini">Google Gemini</option>
-            <option value="groq">Groq</option>
-            <option value="openai">OpenAI</option>
-            <option value="claude">Anthropic Claude</option>
-            <option value="openrouter">OpenRouter</option>
-            <option value="offline">Motor local estruturado</option>
-          </select>
-        </div>
 
         <!-- Categoria -->
         <div>
@@ -144,9 +176,9 @@
               <i data-lucide="play" style="width: 15px; height: 15px;"></i>
               <span>Testar modelo</span>
             </button>
-            <button id="btnCallCouncil" class="btn-council" title="Consultar múltiplos modelos em conjunto">
+            <button id="btnSendToCouncil" class="btn-council" title="Enviar este prompt mestre para debate na Mesa Redonda">
               <i data-lucide="users" style="width: 15px; height: 15px;"></i>
-              <span>Mesa do conselho</span>
+              <span>Enviar para Mesa Redonda</span>
             </button>
             <button id="btnCopyPrompt" class="btn-primary" style="padding: 0.45rem 1rem; font-size: 0.82rem;">
               <i data-lucide="copy" style="width: 15px; height: 15px;"></i>
@@ -254,6 +286,160 @@
       </div>
 
     </section>
+  </div><!-- Fim do viewForger -->
+
+  <!-- View 2: Mesa Redonda (Debate entre IAs) -->
+  <div id="viewRoundTable" class="app-view-grid" style="display: none;">
+    
+    <!-- Painel Esquerdo: Demanda e Participantes -->
+    <section class="panel">
+      <div class="input-section">
+        <div>
+          <div class="section-label">
+            <span>Demanda ou pergunta para a Mesa</span>
+          </div>
+          <div class="textarea-wrapper">
+            <textarea 
+              id="roundTableQuestionInput" 
+              class="prompt-textarea" 
+              style="height: 140px;"
+              placeholder="Digite ou cole qualquer pergunta, desafio técnico, decisão de arquitetura ou prompt para os modelos debaterem..."
+            ></textarea>
+          </div>
+          <div class="quick-examples">
+            <span class="example-pill rt-example-pill" data-text="Qual a melhor estratégia para migrar um monólito legado para microsserviços sem interromper o serviço?">Migração de monólito</span>
+            <span class="example-pill rt-example-pill" data-text="Comparar Rust vs Go para serviços de alta concorrência em backend financeiro.">Rust vs Go em backend</span>
+            <span class="example-pill rt-example-pill" data-text="Como estruturar um sistema de cache multi-camada com Redis e PostgreSQL?">Estratégia de cache</span>
+          </div>
+        </div>
+
+        <!-- Modelos Participantes com Versão Mais Atual -->
+        <div>
+          <div class="section-label">
+            <span>Modelos convocados para o debate</span>
+            <span id="rtParticipantCountTag" style="font-size: 0.72rem; color: var(--accent);">Versões mais recentes</span>
+          </div>
+          <div id="roundTableParticipantsList" class="participant-list">
+            <!-- Preenchido dinamicamente via JS -->
+          </div>
+          <div id="rtNeedMoreModelsWarning" style="display: none; font-size: 0.76rem; color: var(--crimson); margin-top: 0.5rem; line-height: 1.4;">
+            A Mesa Redonda precisa de ao menos 2 modelos conectados para confrontar ideias. <a href="#" id="linkOpenSettingsFromRT" style="color: var(--accent); text-decoration: underline;">Conectar modelos</a>
+          </div>
+        </div>
+
+        <!-- Botão de Disparo do Debate -->
+        <button id="btnStartRoundTable" class="btn-primary" style="width: 100%; margin-top: 0.25rem;">
+          <i data-lucide="scale" style="width: 16px; height: 16px;"></i>
+          <span>Iniciar debate da Mesa Redonda</span>
+        </button>
+      </div>
+
+      <!-- Guia das 3 Etapas -->
+      <div style="padding: 1rem 1.5rem; border-top: 1px solid var(--border); background: var(--surface);">
+        <div style="font-size: 0.76rem; font-weight: 600; color: var(--ink-muted); margin-bottom: 0.5rem;">Como opera a Mesa Redonda</div>
+        <div style="font-size: 0.74rem; color: var(--ink-secondary); line-height: 1.5;">
+          1. <b>Propostas independentes</b> formuladas com os modelos mais avançados.<br>
+          2. <b>Confronto de abordagens</b>, onde as IAs analisam pontos fortes e omissões mútuas.<br>
+          3. <b>Parecer unificado</b> que harmoniza a solução definitiva para ação imediata.
+        </div>
+      </div>
+    </section>
+
+    <!-- Painel Direito: Andamento, Propostas e Consenso -->
+    <section class="panel panel-display">
+      
+      <!-- Estado Vazio da Mesa Redonda -->
+      <div id="roundTableEmptyState" class="empty-state">
+        <div class="empty-quote">"Na multiplicidade de conselheiros há sabedoria."</div>
+        <p class="empty-desc">
+          Escreva uma dúvida ou envie um prompt gerado no painel ao lado. Os modelos conectados formularão respostas simultâneas, analisarão criticamente as divergências e entregarão um parecer unificado de consenso.
+        </p>
+        <div class="rt-steps-guide">
+          <div class="rt-step-box">
+            <span class="rt-step-number">1</span>
+            <div class="rt-step-info">
+              <h4>Propostas simultâneas</h4>
+              <p>Cada modelo conectado responde com sua versão mais avançada e de maior capacidade.</p>
+            </div>
+          </div>
+          <div class="rt-step-box">
+            <span class="rt-step-number">2</span>
+            <div class="rt-step-info">
+              <h4>Debate e confronto crítico</h4>
+              <p>Análise comparativa destacando convergências, omissões e vantagens de cada resposta.</p>
+            </div>
+          </div>
+          <div class="rt-step-box">
+            <span class="rt-step-number">3</span>
+            <div class="rt-step-info">
+              <h4>Parecer unificado de consenso</h4>
+              <p>Síntese final direta e acionável pronta para ser copiada e executada.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Área de Resultados da Mesa Redonda -->
+      <div id="roundTableResultContent" style="display: none; flex-direction: column; gap: 1.5rem; padding: 1.5rem;">
+        
+        <div class="result-header">
+          <div class="result-title-group">
+            <h2>Sessão da Mesa Redonda</h2>
+            <div class="meta-badges">
+              <span id="rtHeaderModelCount" class="meta-badge">Modelos em sessão</span>
+              <span class="meta-badge">Versões mais recentes</span>
+            </div>
+          </div>
+          <div class="result-actions">
+            <button id="btnCopyRoundTableConsensus" class="btn-primary" style="padding: 0.45rem 1rem; font-size: 0.82rem;">
+              <i data-lucide="copy" style="width: 15px; height: 15px;"></i>
+              <span>Copiar parecer final</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Stepper de Progresso -->
+        <div id="rtStatusStepper" class="council-stepper">
+          <i data-lucide="loader-2" class="animate-spin" id="rtSpinner" style="width: 16px; height: 16px;"></i>
+          <span id="rtStatusText">Iniciando consulta aos modelos conectados...</span>
+        </div>
+
+        <!-- Etapa 1: Propostas Independentes -->
+        <div>
+          <div class="section-label">
+            <span>Etapa 1: Propostas independentes de cada modelo</span>
+          </div>
+          <div id="rtProposalsGrid" class="council-proposals-grid"></div>
+        </div>
+
+        <!-- Etapa 2: Confronto e Análise Comparativa -->
+        <div id="rtDebateSection" class="debate-card" style="display: none;">
+          <div class="debate-title">
+            <i data-lucide="message-square" style="width: 15px; height: 15px;"></i>
+            <span>Etapa 2: Confronto de abordagens e pontos complementares</span>
+          </div>
+          <div id="rtDebateContent" class="debate-content"></div>
+        </div>
+
+        <!-- Etapa 3: Parecer Unificado de Consenso -->
+        <div id="rtConsensusSection" class="consensus-card" style="display: none;">
+          <div class="consensus-header">
+            <div class="consensus-tag">
+              <i data-lucide="check-check" style="width: 15px; height: 15px;"></i>
+              <span>Parecer unificado de consenso</span>
+            </div>
+            <button id="btnCopyRtConsensusInline" class="btn-primary" style="padding: 0.4rem 0.85rem; font-size: 0.78rem;">
+              <i data-lucide="copy" style="width: 14px; height: 14px;"></i>
+              <span>Copiar parecer</span>
+            </button>
+          </div>
+          <div id="rtConsensusContent" class="consensus-content"></div>
+        </div>
+
+      </div>
+
+    </section>
+  </div>
 
   </main>
 

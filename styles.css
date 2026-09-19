@@ -102,6 +102,60 @@ body {
   border-radius: 4px;
 }
 
+/* Navegação Principal em Abas (Forjador vs Mesa Redonda) */
+.main-mode-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--canvas);
+  border: 1px solid var(--border);
+  padding: 0.25rem;
+  border-radius: 6px;
+}
+
+.mode-nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--ink-secondary);
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 500;
+  padding: 0.42rem 0.85rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mode-nav-btn:hover {
+  color: var(--ink-primary);
+  background: var(--surface-raised);
+}
+
+.mode-nav-btn.active {
+  background: var(--surface-raised);
+  color: var(--accent);
+  border-color: var(--border-strong);
+  font-weight: 600;
+}
+
+.nav-count-badge {
+  font-size: 0.7rem;
+  background: var(--surface-overlay);
+  color: var(--ink-secondary);
+  padding: 0.08rem 0.4rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
+.mode-nav-btn.active .nav-count-badge {
+  background: var(--accent-subtle);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
 .header-actions {
   display: flex;
   align-items: center;
@@ -182,16 +236,115 @@ body {
   max-width: 1540px;
   margin: 0 auto;
   padding: 1.5rem 2rem;
+  min-height: calc(100vh - 64px);
+  width: 100%;
+}
+
+.app-view-grid {
   display: grid;
   grid-template-columns: 420px 1fr;
   gap: 1.5rem;
-  min-height: calc(100vh - 64px);
+  width: 100%;
+}
+
+.app-view-grid:not(.active) {
+  display: none !important;
 }
 
 @media (max-width: 1050px) {
-  .app-container {
+  .app-view-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* Chips de modelos participantes na Mesa Redonda */
+.participant-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.participant-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--canvas);
+  border: 1px solid var(--border);
+  padding: 0.55rem 0.85rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+}
+
+.participant-chip-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+  color: var(--ink-primary);
+}
+
+.participant-chip-status {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--sage);
+}
+
+.participant-chip-model {
+  font-size: 0.72rem;
+  color: var(--accent);
+  background: var(--accent-subtle);
+  border: 1px solid rgba(216, 155, 83, 0.25);
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.rt-steps-guide {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+  max-width: 500px;
+}
+
+.rt-step-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  text-align: left;
+}
+
+.rt-step-number {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-subtle);
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.rt-step-info h4 {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink-primary);
+  margin-bottom: 0.15rem;
+}
+
+.rt-step-info p {
+  font-size: 0.76rem;
+  color: var(--ink-secondary);
+  line-height: 1.4;
 }
 
 /* Painéis estruturais */
