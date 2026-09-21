@@ -8,19 +8,18 @@ const AI_PROVIDERS = {
     gemini: {
         id: 'gemini',
         name: 'Google Gemini',
-        defaultModel: 'gemini-2.5-flash',
-        topCuttingEdgeModel: 'gemini-3.8-preview',
+        defaultModel: 'gemini-2.0-flash',
+        topCuttingEdgeModel: 'gemini-2.0-flash',
         keyStorageKey: 'promptforge_key_gemini',
         modelStorageKey: 'promptforge_model_gemini',
         docsUrl: 'https://aistudio.google.com/app/apikey',
         canDiscoverModels: true,
         predefinedModels: [
-            { id: 'gemini-3.8-preview', name: 'Gemini 3.8 Preview (Mais recente / Pro)', isPro: true },
-            { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro (Raciocínio avançado)', isPro: true },
-            { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (Rápido e versátil)', isPro: false },
-            { id: 'gemini-2.0-flash-thinking-exp', name: 'Gemini 2.0 Flash Thinking (Raciocínio)', isPro: true },
-            { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', isPro: true },
-            { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', isPro: false }
+            { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash (Mais recente / Recomendado)', isPro: false },
+            { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro (Alta profundidade / Raciocínio)', isPro: true },
+            { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash (Rápido e estável)', isPro: false },
+            { id: 'gemini-2.0-flash-thinking-exp-01-21', name: 'Gemini 2.0 Flash Thinking (Raciocínio experimental)', isPro: true },
+            { id: 'gemini-3.8-preview', name: 'Gemini 3.8 Preview (Preview / Se ativo na conta)', isPro: true }
         ]
     },
     groq: {
@@ -75,7 +74,7 @@ const AI_PROVIDERS = {
     openrouter: {
         id: 'openrouter',
         name: 'OpenRouter',
-        defaultModel: 'google/gemini-2.5-pro',
+        defaultModel: 'anthropic/claude-3.7-sonnet',
         topCuttingEdgeModel: 'anthropic/claude-3.7-sonnet',
         keyStorageKey: 'promptforge_key_openrouter',
         modelStorageKey: 'promptforge_model_openrouter',
@@ -83,10 +82,10 @@ const AI_PROVIDERS = {
         canDiscoverModels: true,
         predefinedModels: [
             { id: 'anthropic/claude-3.7-sonnet', name: 'Claude 3.7 Sonnet (OpenRouter)', isPro: true },
-            { id: 'google/gemini-2.5-pro', name: 'Gemini 2.5 Pro (OpenRouter)', isPro: true },
-            { id: 'openai/o3-mini', name: 'o3-mini (OpenRouter)', isPro: true },
-            { id: 'deepseek/deepseek-r1', name: 'DeepSeek R1 (OpenRouter)', isPro: true },
-            { id: 'meta-llama/llama-3.3-70b-instruct', name: 'Llama 3.3 70B (OpenRouter)', isPro: true }
+            { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet (OpenRouter)', isPro: true },
+            { id: 'google/gemini-2.0-flash-001', name: 'Gemini 2.0 Flash (OpenRouter)', isPro: false },
+            { id: 'openai/gpt-4o', name: 'GPT-4o (OpenRouter)', isPro: true },
+            { id: 'deepseek/deepseek-r1', name: 'DeepSeek R1 (OpenRouter)', isPro: true }
         ]
     }
 };
@@ -442,9 +441,15 @@ async function callUniversalAI(providerId, apiKey, systemPrompt, userMessage, js
 
 // 1. Google Gemini
 async function callGemini(apiKey, systemPrompt, userMessage, jsonMode, modelId) {
-    // Modelos com tentativa: modelo configurado pelo usuário -> fallback
-    const targetModel = modelId || AI_PROVIDERS.gemini.defaultModel;
-    const fallbackList = [targetModel, 'gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-1.5-flash'];
+    const rawTarget = (modelId || AI_PROVIDERS.gemini.defaultModel).trim();
+    // Fallback prioritário: se o modelo configurado falhar (ex: 404 para previews ou versões experimentais não liberadas na conta),
+    // tenta imediatamente os modelos estáveis e oficiais da Google AI Studio
+    const fallbackList = [
+        rawTarget,
+        'gemini-2.0-flash',
+        'gemini-1.5-flash',
+        'gemini-1.5-pro'
+    ];
     const tried = new Set();
     let lastError = null;
 
@@ -473,15 +478,25 @@ async function callGemini(apiKey, systemPrompt, userMessage, jsonMode, modelId) 
 
             if (!res.ok) {
                 const errData = await res.json().catch(() => ({}));
-                throw new Error(errData.error?.message || `HTTP ${res.status}`);
+                const errMsg = errData.error?.message || `HTTP ${res.status}`;
+                if (errMsg.includes('API key not valid') || errMsg.includes('API_KEY_INVALID') || res.status === 400 && errMsg.includes('API key')) {
+                    throw new Error(`Chave do Google Gemini inválida: ${errMsg}`);
+                }
+                if (res.status === 403) {
+                    throw new Error(`Acesso negado no Google Gemini (verifique permissões da chave ou cota): ${errMsg}`);
+                }
+                throw new Error(`Modelo ${model}: ${errMsg}`);
             }
 
             const data = await res.json();
             const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (!text) throw new Error('Resposta vazia do Gemini');
+            if (!text) throw new Error(`Resposta vazia do Gemini no modelo ${model}`);
             return text;
         } catch (err) {
             lastError = err;
+            if (err.message.includes('inválida') || err.message.includes('Acesso negado')) {
+                throw err;
+            }
         }
     }
     throw lastError;
@@ -591,39 +606,85 @@ async function callClaude(apiKey, systemPrompt, userMessage, jsonMode, modelId) 
 
 // 5. OpenRouter (Hub Universal de Modelos)
 async function callOpenRouter(apiKey, systemPrompt, userMessage, jsonMode, modelId) {
-    const targetModel = modelId || AI_PROVIDERS.openrouter.defaultModel;
-    const messages = [];
-    if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
-    messages.push({ role: 'user', content: userMessage });
+    // 1. Limpeza de prefixos acidentais (ex: til ~ gerado por teclado ABNT2 ou barras extras)
+    let cleanModel = (modelId || AI_PROVIDERS.openrouter.defaultModel)
+        .replace(/^[~/\s]+/, '')
+        .trim();
 
-    const body = {
-        model: targetModel,
-        messages: messages,
-        temperature: 0.7,
-        max_tokens: 2500
-    };
-    if (jsonMode) body.response_format = { type: 'json_object' };
-
-    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`,
-            'HTTP-Referer': 'https://promptforge.local',
-            'X-Title': 'PromptForge'
-        },
-        body: JSON.stringify(body)
-    });
-
-    if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error?.message || `HTTP ${res.status}`);
+    // 2. Normalização de aliases comuns para IDs oficiais da OpenRouter
+    if (cleanModel.includes('claude-sonnet-latest') || cleanModel.includes('claude-3-7') || cleanModel === 'anthropic/claude-sonnet') {
+        cleanModel = 'anthropic/claude-3.7-sonnet';
+    } else if (cleanModel.includes('claude-3-5-sonnet') || cleanModel === 'claude-3.5-sonnet') {
+        cleanModel = 'anthropic/claude-3.5-sonnet';
+    } else if (cleanModel.includes('gemini-2') || cleanModel.includes('gemini-2.5')) {
+        cleanModel = 'google/gemini-2.0-flash-001';
+    } else if (cleanModel.includes('gpt-4o')) {
+        cleanModel = 'openai/gpt-4o';
     }
 
-    const data = await res.json();
-    const text = data.choices?.[0]?.message?.content;
-    if (!text) throw new Error('Resposta vazia do OpenRouter');
-    return text;
+    const fallbackList = [
+        cleanModel,
+        'anthropic/claude-3.7-sonnet',
+        'anthropic/claude-3.5-sonnet',
+        'google/gemini-2.0-flash-001',
+        'openai/gpt-4o-mini'
+    ];
+
+    const tried = new Set();
+    let lastError = null;
+
+    for (const model of fallbackList) {
+        if (tried.has(model)) continue;
+        tried.add(model);
+
+        try {
+            const messages = [];
+            if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
+            messages.push({ role: 'user', content: userMessage });
+
+            const body = {
+                model: model,
+                messages: messages,
+                temperature: 0.7,
+                max_tokens: 2500
+            };
+            if (jsonMode) body.response_format = { type: 'json_object' };
+
+            const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`,
+                    'HTTP-Referer': 'https://promptforge.local',
+                    'X-Title': 'PromptForge'
+                },
+                body: JSON.stringify(body)
+            });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                const errMsg = errData.error?.message || `HTTP ${res.status}`;
+                if (res.status === 401 || errMsg.includes('auth') || errMsg.includes('key')) {
+                    throw new Error(`Chave do OpenRouter inválida ou não autorizada (${errMsg})`);
+                }
+                if (res.status === 402 || errMsg.includes('credit')) {
+                    throw new Error(`OpenRouter sem créditos disponíveis (${errMsg})`);
+                }
+                throw new Error(`Modelo ${model}: ${errMsg}`);
+            }
+
+            const data = await res.json();
+            const text = data.choices?.[0]?.message?.content;
+            if (!text) throw new Error(`Resposta vazia do OpenRouter no modelo ${model}`);
+            return text;
+        } catch (err) {
+            lastError = err;
+            if (err.message.includes('inválida') || err.message.includes('sem créditos')) {
+                throw err;
+            }
+        }
+    }
+    throw lastError;
 }
 
 /**
@@ -640,9 +701,13 @@ async function forgePromptWithAI(providerId, apiKey, rawIdea, category, tone, mo
  * Determina o modelo mais recente / topo de linha para o debate conjunto
  */
 function resolveCuttingEdgeModel(provId, configuredModels = {}, discoveredModels = {}) {
-    // 1. Se o usuário configurou um modelo customizado específico ou escolheu um Pro, usa ele
+    // 1. Se o usuário configurou um modelo customizado específico ou escolheu um Pro, usa ele (com sanitização)
     if (configuredModels[provId]) {
-        return configuredModels[provId];
+        let m = configuredModels[provId].replace(/^[~/\s]+/, '').trim();
+        if (provId === 'openrouter' && (m.includes('claude-sonnet-latest') || m === 'anthropic/claude-sonnet')) {
+            return 'anthropic/claude-3.7-sonnet';
+        }
+        return m;
     }
 
     // 2. Se a conta auto-detectou modelos autorizados, busca a melhor versão Pro / raciocínio
@@ -700,7 +765,10 @@ async function runAiCouncil({ promptText, connectedProviders, apiKeys, configure
     const validProposals = individualResults.filter(r => !r.error && r.content);
 
     if (validProposals.length === 0) {
-        throw new Error('Nenhum dos modelos conectados conseguiu responder. Verifique as chaves e modelos configurados.');
+        const errorDetails = individualResults.map(r => `${r.providerName}: ${r.error}`).join(' | ');
+        const err = new Error(`Nenhum dos modelos conectados conseguiu responder. Detalhes: ${errorDetails}`);
+        err.individualResults = individualResults;
+        throw err;
     }
 
     // ETAPA 2: Confronto de abordagens e pontos complementares
@@ -708,7 +776,9 @@ async function runAiCouncil({ promptText, connectedProviders, apiKeys, configure
 
     const debateSummaries = validProposals.map(p => `[Proposta de ${p.providerName} (${p.modelUsed})]:\n${p.content}`).join('\n\n---\n\n');
 
-    const debatePrompt = `
+    let debateResult = '';
+    if (validProposals.length > 1) {
+        const debatePrompt = `
 Você atua como mediador técnico de uma mesa de revisão. Abaixo estão as respostas apresentadas por diferentes modelos para o seguinte prompt:
 
 """
@@ -725,19 +795,21 @@ SUA ANÁLISE:
 Escreva de forma direta e sem jargões de bajulação.
 `.trim();
 
-    const debater = validProposals[0];
-    let debateResult = '';
-    try {
-        debateResult = await callUniversalAI(
-            debater.providerId, 
-            apiKeys[debater.providerId], 
-            'Atue como mediador técnico de uma mesa de revisão.',
-            debatePrompt, 
-            false,
-            debater.modelUsed
-        );
-    } catch (e) {
-        debateResult = 'As abordagens convergiram na solução principal, com complementos em detalhamento e regras práticas.';
+        const debater = validProposals[0];
+        try {
+            debateResult = await callUniversalAI(
+                debater.providerId, 
+                apiKeys[debater.providerId], 
+                'Atue como mediador técnico de uma mesa de revisão.',
+                debatePrompt, 
+                false,
+                debater.modelUsed
+            );
+        } catch (e) {
+            debateResult = 'As abordagens convergiram na solução principal, com complementos em detalhamento e regras práticas.';
+        }
+    } else {
+        debateResult = `Apenas o modelo ${validProposals[0].providerName} respondeu com sucesso nesta sessão. Sua proposta foi aproveitada e aprofundada para o parecer final.`;
     }
 
     // ETAPA 3: Síntese e Parecer de Consenso

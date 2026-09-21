@@ -32,6 +32,23 @@ const state = {
     isCouncilRunning: false
 };
 
+// Sanitização de modelos salvos com caracteres espúrios (como til ~ acidental) ou aliases obsoletos
+Object.keys(state.configuredModels).forEach(provId => {
+    const m = state.configuredModels[provId];
+    if (m && typeof m === 'string') {
+        const cleaned = m.replace(/^[~/\s]+/, '').trim();
+        if (provId === 'openrouter' && (cleaned.includes('claude-sonnet-latest') || cleaned === 'anthropic/claude-sonnet')) {
+            state.configuredModels[provId] = 'anthropic/claude-3.7-sonnet';
+            const prov = AI_PROVIDERS[provId];
+            if (prov) localStorage.setItem(prov.modelStorageKey, 'anthropic/claude-3.7-sonnet');
+        } else if (cleaned !== m) {
+            state.configuredModels[provId] = cleaned;
+            const prov = AI_PROVIDERS[provId];
+            if (prov) localStorage.setItem(prov.modelStorageKey, cleaned);
+        }
+    }
+});
+
 // Elementos DOM
 const dom = {
     // Header & Navegação em Abas
@@ -466,14 +483,32 @@ async function handleStartRoundTable() {
         dom.rtProposalsGrid.innerHTML = '';
         councilResult.proposals.forEach(p => {
             const card = document.createElement('div');
-            card.className = 'proposal-card';
-            card.innerHTML = `
-                <div class="proposal-card-header">
-                    <span>${p.providerName}</span>
-                    <span style="font-size: 0.72rem; color: var(--accent);">${p.modelUsed}</span>
-                </div>
-                <div class="proposal-content">${escapeHtml(p.content)}</div>
-            `;
+            if (p.error) {
+                card.className = 'proposal-card';
+                card.style.borderColor = 'rgba(200, 100, 100, 0.4)';
+                card.style.background = 'rgba(200, 100, 100, 0.04)';
+                card.innerHTML = `
+                    <div class="proposal-card-header" style="border-bottom: 1px solid rgba(200, 100, 100, 0.2);">
+                        <span style="color: var(--crimson); font-weight: 600;">${escapeHtml(p.providerName)} (Aviso)</span>
+                        <span style="font-size: 0.72rem; color: var(--ink-muted);">${escapeHtml(p.modelUsed)}</span>
+                    </div>
+                    <div class="proposal-content" style="color: var(--ink-secondary); font-size: 0.8rem; padding: 0.75rem;">
+                        <p style="margin-bottom: 0.35rem; color: var(--crimson); font-weight: 500;">Não foi possível obter resposta desta IA nesta rodada:</p>
+                        <div style="font-family: monospace; font-size: 0.74rem; background: var(--canvas); padding: 0.45rem; border-radius: 4px; border: 1px solid var(--border); word-break: break-word;">
+                            ${escapeHtml(p.error)}
+                        </div>
+                    </div>
+                `;
+            } else {
+                card.className = 'proposal-card';
+                card.innerHTML = `
+                    <div class="proposal-card-header">
+                        <span>${escapeHtml(p.providerName)}</span>
+                        <span style="font-size: 0.72rem; color: var(--accent);">${escapeHtml(p.modelUsed)}</span>
+                    </div>
+                    <div class="proposal-content">${escapeHtml(p.content)}</div>
+                `;
+            }
             dom.rtProposalsGrid.appendChild(card);
         });
 
@@ -490,14 +525,41 @@ async function handleStartRoundTable() {
         }
 
         dom.rtSpinner.style.display = 'none';
-        dom.rtStatusText.textContent = `Sessão concluída. Parecer unificado gerado a partir de ${councilResult.participatingCount} modelos.`;
-        showToast('Parecer de consenso formulado.', 'success');
+        dom.rtStatusText.textContent = `Sessão concluída. Parecer unificado gerado a partir de ${councilResult.participatingCount} modelo(s).`;
+        showToast('Parecer da Mesa Redonda formulado com sucesso.', 'success');
 
     } catch (err) {
         console.error('Erro na Mesa Redonda:', err);
         dom.rtSpinner.style.display = 'none';
         dom.rtStatusText.textContent = `Falha na consulta: ${err.message}`;
-        showToast('Erro na Mesa Redonda: ' + err.message, 'danger');
+        
+        if (err.individualResults && err.individualResults.length > 0) {
+            dom.rtProposalsGrid.innerHTML = '';
+            err.individualResults.forEach(p => {
+                const card = document.createElement('div');
+                card.className = 'proposal-card';
+                card.style.borderColor = 'rgba(200, 100, 100, 0.45)';
+                card.style.background = 'rgba(200, 100, 100, 0.04)';
+                card.innerHTML = `
+                    <div class="proposal-card-header" style="border-bottom: 1px solid rgba(200, 100, 100, 0.2);">
+                        <span style="color: var(--crimson); font-weight: 600;">${escapeHtml(p.providerName)}</span>
+                        <span style="font-size: 0.72rem; color: var(--ink-muted);">${escapeHtml(p.modelUsed)}</span>
+                    </div>
+                    <div class="proposal-content" style="color: var(--ink-secondary); font-size: 0.8rem; padding: 0.85rem;">
+                        <p style="margin-bottom: 0.4rem; color: var(--crimson); font-weight: 600;">Erro retornado pela API:</p>
+                        <div style="font-family: monospace; font-size: 0.75rem; background: var(--canvas); padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border); word-break: break-word; color: var(--ink-primary); margin-bottom: 0.75rem;">
+                            ${escapeHtml(p.error || 'Erro desconhecido')}
+                        </div>
+                        <button class="btn-ghost" style="font-size: 0.75rem; padding: 0.35rem 0.65rem; border: 1px solid var(--border-strong); border-radius: 4px; color: var(--ink-primary);" onclick="openConnectionsModal('${p.providerId}')">
+                            Ajustar chave ou modelo de ${escapeHtml(p.providerName)}
+                        </button>
+                    </div>
+                `;
+                dom.rtProposalsGrid.appendChild(card);
+            });
+            refreshIcons();
+        }
+        showToast('Nenhum modelo respondeu. Verifique os avisos abaixo.', 'danger');
     }
 
     refreshIcons();
