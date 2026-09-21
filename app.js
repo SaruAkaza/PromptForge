@@ -55,6 +55,10 @@ const dom = {
     panelCustomModelInput: document.getElementById('panelCustomModelInput'),
     categoryContainer: document.getElementById('categoryContainer'),
     toneSelect: document.getElementById('toneSelect'),
+    toneSelectWrapper: document.getElementById('toneSelectWrapper'),
+    toneTooltip: document.getElementById('toneTooltip'),
+    toneDescriptionCaption: document.getElementById('toneDescriptionCaption'),
+    toneInfoTag: document.getElementById('toneInfoTag'),
     btnForge: document.getElementById('btnForge'),
     forgeBtnText: document.getElementById('forgeBtnText'),
     forgeIcon: document.getElementById('forgeIcon'),
@@ -115,6 +119,9 @@ const dom = {
     provModalLabel: document.getElementById('provModalLabel'),
     provModalStatus: document.getElementById('provModalStatus'),
     provModalInput: document.getElementById('provModalInput'),
+    btnRefreshProvModels: document.getElementById('btnRefreshProvModels'),
+    refreshProvIcon: document.getElementById('refreshProvIcon'),
+    refreshProvText: document.getElementById('refreshProvText'),
     provModalHelp: document.getElementById('provModalHelp'),
     provModalModelSelect: document.getElementById('provModalModelSelect'),
     provModalCustomModelInput: document.getElementById('provModalCustomModelInput'),
@@ -178,19 +185,52 @@ function initCategories() {
     });
 }
 
-// Inicializa tons de voz
+// Atualiza a legenda explicativa e o balão flutuante da diretriz de tom
+function updateToneDisplay(toneId) {
+    const tone = PROMPT_TONES[toneId] || PROMPT_TONES.human || PROMPT_TONES.technical;
+    if (dom.toneDescriptionCaption) {
+        dom.toneDescriptionCaption.innerHTML = `<span style="color: var(--accent); font-weight: 600;">Diretriz ativa:</span> ${tone.description}`;
+    }
+    if (dom.toneTooltip) {
+        dom.toneTooltip.innerHTML = `
+            <div class="tone-tooltip-title">
+                <i data-lucide="compass" style="width: 14px; height: 14px;"></i>
+                <span>${tone.name}</span>
+            </div>
+            <div class="tone-tooltip-desc">${tone.description}</div>
+        `;
+        if (window.lucide) {
+            lucide.createIcons();
+        }
+    }
+    if (dom.toneSelect) {
+        dom.toneSelect.title = tone.description;
+    }
+}
+
+// Inicializa tons de voz e diretrizes de linguagem
 function initTones() {
+    if (!dom.toneSelect) return;
     dom.toneSelect.innerHTML = '';
     Object.values(PROMPT_TONES).forEach(tone => {
         const opt = document.createElement('option');
         opt.value = tone.id;
-        opt.textContent = `${tone.name}: ${tone.description}`;
+        opt.textContent = tone.name;
+        opt.title = tone.description;
         dom.toneSelect.appendChild(opt);
     });
     dom.toneSelect.value = state.selectedTone;
+    updateToneDisplay(state.selectedTone);
+
     dom.toneSelect.addEventListener('change', (e) => {
         state.selectedTone = e.target.value;
+        updateToneDisplay(e.target.value);
     });
+
+    if (dom.toneInfoTag && dom.toneTooltip) {
+        dom.toneInfoTag.addEventListener('mouseenter', () => dom.toneTooltip.classList.add('visible'));
+        dom.toneInfoTag.addEventListener('mouseleave', () => dom.toneTooltip.classList.remove('visible'));
+    }
 }
 
 // Inicializa seletor do motor gerador
@@ -606,6 +646,33 @@ function setupEventListeners() {
     if (dom.btnSaveProvKey) dom.btnSaveProvKey.addEventListener('click', handleSaveProviderKey);
     if (dom.btnClearProvKey) dom.btnClearProvKey.addEventListener('click', handleClearProviderKey);
 
+    if (dom.btnRefreshProvModels) {
+        dom.btnRefreshProvModels.addEventListener('click', () => {
+            const provId = state.activeModalProvider;
+            const key = dom.provModalInput ? dom.provModalInput.value.trim() : '';
+            if (!key) {
+                showToast('Insira uma chave de API para consultar os modelos.', 'warning');
+                if (dom.provModalInput) dom.provModalInput.focus();
+                return;
+            }
+            loadModelsForProvider(provId, key, true);
+        });
+    }
+
+    let provKeyDebounce = null;
+    if (dom.provModalInput) {
+        dom.provModalInput.addEventListener('input', (e) => {
+            clearTimeout(provKeyDebounce);
+            const key = e.target.value.trim();
+            const provId = state.activeModalProvider;
+            if (key.length >= 10) {
+                provKeyDebounce = setTimeout(() => {
+                    loadModelsForProvider(provId, key, false);
+                }, 600);
+            }
+        });
+    }
+
     // Modal do Guia
     dom.btnOpenGuide.addEventListener('click', () => {
         dom.guideModal.classList.add('open');
@@ -705,6 +772,7 @@ function renderProviderModalTab() {
     }
 }
 
+
 // Renderiza o select de modelos no modal
 function renderModelsDropdown(provId) {
     const prov = AI_PROVIDERS[provId];
@@ -717,7 +785,8 @@ function renderModelsDropdown(provId) {
     models.forEach(m => {
         const opt = document.createElement('option');
         opt.value = m.id;
-        opt.textContent = m.name + (m.isPro ? ' [Pro/Avançado]' : '');
+        const needsProTag = m.isPro && !m.name.includes('Pro') && !m.name.includes('Avançado') && !m.name.includes('Topo') && !m.name.includes('(');
+        opt.textContent = m.name + (needsProTag ? ' [Pro/Avançado]' : '');
         dom.provModalModelSelect.appendChild(opt);
     });
 
@@ -733,27 +802,38 @@ function renderModelsDropdown(provId) {
 }
 
 // Executa auto-detecção assíncrona consultando a API do provedor
-async function loadModelsForProvider(provId, key) {
+async function loadModelsForProvider(provId, key, isManualRefresh = false) {
     if (!key) return;
     const prov = AI_PROVIDERS[provId];
 
-    dom.provModelDetectTag.textContent = 'Consultando modelos da conta...';
+    if (dom.refreshProvIcon) dom.refreshProvIcon.classList.add('animate-spin');
+    if (dom.btnRefreshProvModels) dom.btnRefreshProvModels.disabled = true;
+    if (dom.refreshProvText) dom.refreshProvText.textContent = 'Buscando...';
+    if (dom.provModelDetectTag) {
+        dom.provModelDetectTag.textContent = 'Consultando modelos mais recentes da conta...';
+        dom.provModelDetectTag.style.color = 'var(--accent)';
+    }
 
     try {
         const models = await fetchAvailableModels(provId, key);
         if (models && models.length > 0) {
             state.discoveredModels[provId] = models;
 
-            // Se o usuário ainda não escolheu um modelo específico, seleciona automaticamente o modelo Pro/topo de linha
-            if (!state.configuredModels[provId]) {
+            // Se o usuário não digitou um modelo customizado manual, auto-seleciona a versão mais avançada (index 0)
+            const currentCustom = dom.provModalCustomModelInput ? dom.provModalCustomModelInput.value.trim() : '';
+            if (!currentCustom) {
                 const topModel = models[0].id;
                 state.configuredModels[provId] = topModel;
                 localStorage.setItem(prov.modelStorageKey, topModel);
             }
 
-            const currentModel = state.configuredModels[provId];
-            const isTopPro = models.find(m => m.id === currentModel && m.isPro);
-            dom.provModelDetectTag.textContent = isTopPro ? 'Modelo Pro/Avançado detectado da conta' : 'Modelos autorizados detectados';
+            const activeModel = state.configuredModels[provId] || models[0].id;
+            const topModelObj = models.find(m => m.id === activeModel) || models[0];
+
+            if (dom.provModelDetectTag) {
+                dom.provModelDetectTag.textContent = `${models.length} modelos detectados • ${topModelObj.name.split(' ')[0]} ativo`;
+                dom.provModelDetectTag.style.color = 'var(--sage)';
+            }
 
             if (state.activeModalProvider === provId) {
                 renderModelsDropdown(provId);
@@ -761,11 +841,32 @@ async function loadModelsForProvider(provId, key) {
             updateActiveEngineBadge();
             renderPanelModelControls();
             renderRoundTableParticipants();
+
+            if (isManualRefresh) {
+                showToast(`${models.length} modelos atualizados com sucesso da conta ${prov.name}.`, 'success');
+            }
         } else {
-            dom.provModelDetectTag.textContent = 'Modelos padrão ativos';
+            if (dom.provModelDetectTag) {
+                dom.provModelDetectTag.textContent = 'Modelos padrão ativos';
+                dom.provModelDetectTag.style.color = 'var(--ink-muted)';
+            }
+            if (isManualRefresh) {
+                showToast(`Nenhum modelo retornado. Usando modelos padrão de ${prov.name}.`, 'warning');
+            }
         }
     } catch (err) {
-        dom.provModelDetectTag.textContent = 'Usando modelo padrão';
+        console.warn('Erro ao consultar modelos da conta:', err);
+        if (dom.provModelDetectTag) {
+            dom.provModelDetectTag.textContent = 'Erro ao consultar API da conta';
+            dom.provModelDetectTag.style.color = 'var(--crimson)';
+        }
+        if (isManualRefresh) {
+            showToast('Erro ao consultar modelos. Verifique a chave ou conexão.', 'error');
+        }
+    } finally {
+        if (dom.refreshProvIcon) dom.refreshProvIcon.classList.remove('animate-spin');
+        if (dom.btnRefreshProvModels) dom.btnRefreshProvModels.disabled = false;
+        if (dom.refreshProvText) dom.refreshProvText.textContent = 'Buscar modelos';
     }
 }
 

@@ -1076,3 +1076,116 @@ body {
 .animate-spin {
   animation: spin 1s linear infinite;
 }
+
+/* Diretriz de tom e linguagem: seletor, balão flutuante e legenda */
+.tone-control-group {
+  margin-bottom: 0.85rem;
+}
+
+.tone-select-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.info-tag-hint {
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--accent);
+  background: var(--accent-subtle);
+  padding: 0.15rem 0.45rem;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.info-tag-hint:hover {
+  opacity: 0.85;
+}
+
+.tone-desc-caption {
+  font-size: 0.74rem;
+  color: var(--ink-secondary);
+  line-height: 1.4;
+  margin-top: 0.35rem;
+  padding: 0.25rem 0.4rem;
+  background: rgba(255, 255, 255, 0.02);
+  border-left: 2px solid var(--accent);
+  border-radius: 0 4px 4px 0;
+  min-height: 24px;
+  transition: all 0.2s ease;
+}
+
+.tone-floating-tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  background: var(--surface-overlay);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  padding: 0.65rem 0.85rem;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
+  font-size: 0.78rem;
+  color: var(--ink-primary);
+  line-height: 1.5;
+  z-index: 100;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(4px);
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+  pointer-events: none;
+}
+
+.tone-floating-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 24px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: var(--border-strong) transparent transparent transparent;
+}
+
+.tone-select-wrapper:hover .tone-floating-tooltip,
+.tone-floating-tooltip.visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.tone-tooltip-title {
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 0.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.tone-tooltip-desc {
+  color: var(--ink-secondary);
+  font-size: 0.75rem;
+}
+
+/* Botão de atualizar modelos de API */
+.icon-btn-refresh {
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.icon-btn-refresh:hover {
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+  background: var(--accent-subtle);
+}
+
+.icon-btn-refresh:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+  .desktop-only-text {
+    display: none;
+  }
+}

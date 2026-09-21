@@ -119,14 +119,21 @@
           </div>
         </div>
 
-        <!-- Tom de Voz -->
-        <div>
-          <div class="section-label">
+        <!-- Tom de Voz e Diretriz de Linguagem -->
+        <div class="tone-control-group">
+          <div class="section-label" style="display: flex; justify-content: space-between; align-items: center;">
             <span>Diretriz de tom e linguagem</span>
+            <span class="info-tag-hint" id="toneInfoTag" title="Diretriz detalhada do tom selecionado">Guia de estilo</span>
           </div>
-          <select id="toneSelect" class="custom-select">
-            <!-- Injetado dinamicamente via JS -->
-          </select>
+          <div class="tone-select-wrapper" id="toneSelectWrapper">
+            <select id="toneSelect" class="custom-select">
+              <!-- Injetado dinamicamente via JS -->
+            </select>
+            <!-- Balão flutuante moderno no hover -->
+            <div id="toneTooltip" class="tone-floating-tooltip" role="tooltip"></div>
+          </div>
+          <!-- Legenda dinâmica explicativa logo abaixo do seletor -->
+          <div id="toneDescriptionCaption" class="tone-desc-caption"></div>
         </div>
 
         <!-- Botão de Ação -->
@@ -477,7 +484,13 @@
           <span id="provModalLabel">Chave do Google Gemini</span>
           <span id="provModalStatus" style="font-size: 0.72rem; color: var(--sage);">Conectado</span>
         </div>
-        <input type="password" id="provModalInput" class="modal-input" placeholder="Insira a chave de API...">
+        <div class="api-key-input-wrapper" style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.4rem;">
+          <input type="password" id="provModalInput" class="modal-input" placeholder="Insira a chave de API..." style="flex: 1; margin-bottom: 0;">
+          <button id="btnRefreshProvModels" class="btn-ghost icon-btn-refresh" title="Buscar e atualizar modelos mais recentes da conta" type="button" style="padding: 0.55rem 0.75rem; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; gap: 0.4rem; font-size: 0.78rem; border-radius: 4px; color: var(--ink-secondary);">
+            <i data-lucide="refresh-cw" id="refreshProvIcon" style="width: 14px; height: 14px;"></i>
+            <span id="refreshProvText" class="desktop-only-text">Buscar modelos</span>
+          </button>
+        </div>
         
         <div class="modal-help" id="provModalHelp">
           Acesse para obter uma chave: <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a>

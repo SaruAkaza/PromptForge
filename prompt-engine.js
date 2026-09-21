@@ -31,43 +31,63 @@ const AI_PROVIDERS = {
         keyStorageKey: 'promptforge_key_groq',
         modelStorageKey: 'promptforge_model_groq',
         docsUrl: 'https://console.groq.com/keys',
-        canDiscoverModels: true
+        canDiscoverModels: true,
+        predefinedModels: [
+            { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B Versatile (Topo de linha / 128k)', isPro: true },
+            { id: 'deepseek-r1-distill-llama-70b', name: 'DeepSeek R1 Distill 70B (Raciocínio avançado)', isPro: true },
+            { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B Instant (Ultra-rápido)', isPro: false },
+            { id: 'gemma2-9b-it', name: 'Gemma 2 9B Instruct', isPro: false }
+        ]
     },
     openai: {
         id: 'openai',
         name: 'OpenAI',
-        defaultModel: 'gpt-4o-mini',
-        topCuttingEdgeModel: 'gpt-4o',
+        defaultModel: 'gpt-4o',
+        topCuttingEdgeModel: 'o3-mini',
         keyStorageKey: 'promptforge_key_openai',
         modelStorageKey: 'promptforge_model_openai',
         docsUrl: 'https://platform.openai.com/api-keys',
-        canDiscoverModels: true
+        canDiscoverModels: true,
+        predefinedModels: [
+            { id: 'o3-mini', name: 'o3-mini (Raciocínio mais recente)', isPro: true },
+            { id: 'o1', name: 'o1 (Raciocínio profundo)', isPro: true },
+            { id: 'gpt-4o', name: 'GPT-4o (Topo de linha multimodal)', isPro: true },
+            { id: 'gpt-4o-mini', name: 'GPT-4o Mini (Rápido e econômico)', isPro: false },
+            { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', isPro: true }
+        ]
     },
     claude: {
         id: 'claude',
         name: 'Anthropic Claude',
-        defaultModel: 'claude-3-5-haiku-20241022',
+        defaultModel: 'claude-3-7-sonnet',
         topCuttingEdgeModel: 'claude-3-7-sonnet',
         keyStorageKey: 'promptforge_key_claude',
         modelStorageKey: 'promptforge_model_claude',
         docsUrl: 'https://console.anthropic.com/settings/keys',
         canDiscoverModels: false,
         predefinedModels: [
-            { id: 'claude-3-7-sonnet', name: 'Claude 3.7 Sonnet (Mais recente)' },
-            { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet v2' },
-            { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku (Rápido)' },
-            { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus (Alta profundidade)' }
+            { id: 'claude-3-7-sonnet', name: 'Claude 3.7 Sonnet (Mais recente / Raciocínio híbrido)', isPro: true },
+            { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet v2', isPro: true },
+            { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku (Rápido)', isPro: false },
+            { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus (Alta profundidade)', isPro: true }
         ]
     },
     openrouter: {
         id: 'openrouter',
         name: 'OpenRouter',
         defaultModel: 'google/gemini-2.5-pro',
-        topCuttingEdgeModel: 'google/gemini-2.5-pro',
+        topCuttingEdgeModel: 'anthropic/claude-3.7-sonnet',
         keyStorageKey: 'promptforge_key_openrouter',
         modelStorageKey: 'promptforge_model_openrouter',
         docsUrl: 'https://openrouter.ai/keys',
-        canDiscoverModels: true
+        canDiscoverModels: true,
+        predefinedModels: [
+            { id: 'anthropic/claude-3.7-sonnet', name: 'Claude 3.7 Sonnet (OpenRouter)', isPro: true },
+            { id: 'google/gemini-2.5-pro', name: 'Gemini 2.5 Pro (OpenRouter)', isPro: true },
+            { id: 'openai/o3-mini', name: 'o3-mini (OpenRouter)', isPro: true },
+            { id: 'deepseek/deepseek-r1', name: 'DeepSeek R1 (OpenRouter)', isPro: true },
+            { id: 'meta-llama/llama-3.3-70b-instruct', name: 'Llama 3.3 70B (OpenRouter)', isPro: true }
+        ]
     }
 };
 
@@ -198,7 +218,7 @@ Responda ESTRITAMENTE em formato JSON com o seguinte schema (não adicione texto
  * Consulta a API da conta e classifica os modelos priorizando versões Pro e topo de linha.
  */
 async function fetchAvailableModels(providerId, apiKey) {
-    if (!apiKey) return [];
+    if (!apiKey) return (AI_PROVIDERS[providerId]?.predefinedModels || []);
 
     try {
         if (providerId === 'gemini') {
@@ -208,104 +228,186 @@ async function fetchAvailableModels(providerId, apiKey) {
                 if (res.ok) {
                     const data = await res.json();
                     apiModels = (data.models || [])
-                        .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent'))
+                        .filter(m => {
+                            const id = (m.name || '').replace('models/', '').toLowerCase();
+                            const methods = m.supportedGenerationMethods || [];
+                            const isTextGen = methods.includes('generateContent');
+                            const isExcluded = id.includes('embedding') || id.includes('aqa') || id.includes('imagen') || id.includes('bison') || id.includes('learnlm');
+                            return isTextGen && !isExcluded;
+                        })
                         .map(m => {
                             const id = m.name.replace('models/', '');
-                            return {
-                                id: id,
-                                name: m.displayName || id,
-                                isPro: id.includes('pro') || id.includes('ultra') || id.includes('3.') || id.includes('thinking')
-                            };
+                            const isPro = id.includes('pro') || id.includes('ultra') || id.includes('3.') || id.includes('thinking');
+                            let prettyName = m.displayName || id;
+                            if (id === 'gemini-3.8-preview') prettyName = 'Gemini 3.8 Preview (Mais recente / Pro)';
+                            else if (id === 'gemini-2.5-pro') prettyName = 'Gemini 2.5 Pro (Raciocínio avançado)';
+                            else if (id === 'gemini-2.5-flash') prettyName = 'Gemini 2.5 Flash (Rápido e versátil)';
+                            else if (id === 'gemini-2.0-flash-thinking-exp') prettyName = 'Gemini 2.0 Flash Thinking (Raciocínio)';
+                            return { id, name: prettyName, isPro };
                         });
                 }
             } catch (e) {
                 console.warn('Erro ao consultar API de modelos Gemini:', e.message);
             }
 
-            // Mescla com modelos predefinidos garantindo que gemini-3.8-preview e Pro estejam presentes
+            // Mescla com modelos predefinidos garantindo que versões topo de linha estejam sempre disponíveis
             const combined = [...(AI_PROVIDERS.gemini.predefinedModels || [])];
             apiModels.forEach(m => {
-                if (!combined.some(c => c.id === m.id)) {
+                const existingIdx = combined.findIndex(c => c.id === m.id);
+                if (existingIdx === -1) {
                     combined.push(m);
+                } else if (m.name && !combined[existingIdx].name.includes('(')) {
+                    combined[existingIdx].name = m.name;
                 }
             });
 
-            // Ordena: Pro e modelos mais recentes (3.x, pro, ultra) primeiro
+            // Ordena colocando modelos mais recentes e Pro no topo
             combined.sort((a, b) => {
-                if (a.isPro && !b.isPro) return -1;
-                if (!a.isPro && b.isPro) return 1;
-                return b.id.localeCompare(a.id);
+                const rank = (id) => {
+                    if (id.includes('3.8')) return 100;
+                    if (id.includes('2.5-pro')) return 90;
+                    if (id.includes('2.5-flash')) return 80;
+                    if (id.includes('thinking')) return 75;
+                    if (id.includes('2.0-flash')) return 70;
+                    if (id.includes('1.5-pro')) return 60;
+                    if (id.includes('1.5-flash')) return 50;
+                    return 10;
+                };
+                return rank(b.id) - rank(a.id);
             });
 
             return combined;
         }
 
         if (providerId === 'groq') {
-            const res = await fetch('https://api.groq.com/openai/v1/models', {
-                headers: { 'Authorization': `Bearer ${apiKey}` }
+            let apiModels = [];
+            try {
+                const res = await fetch('https://api.groq.com/openai/v1/models', {
+                    headers: { 'Authorization': `Bearer ${apiKey}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    apiModels = (data.data || [])
+                        .filter(m => {
+                            const id = m.id.toLowerCase();
+                            return !id.includes('whisper') && !id.includes('guard') && !id.includes('audio');
+                        })
+                        .map(m => ({
+                            id: m.id,
+                            name: m.id.includes('llama-3.3-70b') ? 'Llama 3.3 70B Versatile (Topo de linha)' :
+                                  m.id.includes('r1') ? 'DeepSeek R1 Distill 70B (Raciocínio)' :
+                                  m.id.includes('llama-3.1-8b') ? 'Llama 3.1 8B Instant (Rápido)' : m.id,
+                            isPro: m.id.includes('70b') || m.id.includes('r1')
+                        }));
+                }
+            } catch (e) {
+                console.warn('Erro ao consultar API de modelos Groq:', e.message);
+            }
+
+            const combined = [...(AI_PROVIDERS.groq.predefinedModels || [])];
+            apiModels.forEach(m => {
+                if (!combined.some(c => c.id === m.id)) {
+                    combined.push(m);
+                }
             });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const data = await res.json();
 
-            const models = (data.data || []).map(m => ({
-                id: m.id,
-                name: m.id,
-                isPro: m.id.includes('70b') || m.id.includes('r1')
-            }));
-
-            models.sort((a, b) => {
+            combined.sort((a, b) => {
                 if (a.isPro && !b.isPro) return -1;
                 if (!a.isPro && b.isPro) return 1;
                 return a.id.localeCompare(b.id);
             });
 
-            return models;
+            return combined;
         }
 
         if (providerId === 'openai') {
-            const res = await fetch('https://api.openai.com/v1/models', {
-                headers: { 'Authorization': `Bearer ${apiKey}` }
+            let apiModels = [];
+            try {
+                const res = await fetch('https://api.openai.com/v1/models', {
+                    headers: { 'Authorization': `Bearer ${apiKey}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    apiModels = (data.data || [])
+                        .filter(m => {
+                            const id = m.id.toLowerCase();
+                            const isModern = id.startsWith('gpt-4') || id.startsWith('o1') || id.startsWith('o3');
+                            const isExcluded = id.includes('realtime') || id.includes('audio') || id.includes('tts') || id.includes('whisper') || id.includes('dall-e') || id.includes('embedding');
+                            return isModern && !isExcluded;
+                        })
+                        .map(m => ({
+                            id: m.id,
+                            name: m.id === 'o3-mini' ? 'o3-mini (Raciocínio mais recente)' :
+                                  m.id === 'o1' ? 'o1 (Raciocínio profundo)' :
+                                  m.id === 'gpt-4o' ? 'GPT-4o (Topo de linha)' :
+                                  m.id === 'gpt-4o-mini' ? 'GPT-4o Mini (Econômico)' : m.id,
+                            isPro: m.id.startsWith('o') || m.id === 'gpt-4o' || m.id === 'gpt-4-turbo'
+                        }));
+                }
+            } catch (e) {
+                console.warn('Erro ao consultar API de modelos OpenAI:', e.message);
+            }
+
+            const combined = [...(AI_PROVIDERS.openai.predefinedModels || [])];
+            apiModels.forEach(m => {
+                if (!combined.some(c => c.id === m.id)) {
+                    combined.push(m);
+                }
             });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const data = await res.json();
 
-            const models = (data.data || [])
-                .filter(m => m.id.startsWith('gpt') || m.id.startsWith('o1') || m.id.startsWith('o3'))
-                .map(m => ({
-                    id: m.id,
-                    name: m.id,
-                    isPro: m.id === 'gpt-4o' || m.id.startsWith('o1') || m.id.startsWith('o3')
-                }));
-
-            models.sort((a, b) => {
-                if (a.isPro && !b.isPro) return -1;
-                if (!a.isPro && b.isPro) return 1;
-                return a.id.localeCompare(b.id);
+            combined.sort((a, b) => {
+                const rank = (id) => {
+                    if (id === 'o3-mini') return 100;
+                    if (id === 'o1') return 95;
+                    if (id === 'gpt-4o') return 90;
+                    if (id === 'gpt-4o-mini') return 80;
+                    if (id.startsWith('o1-')) return 75;
+                    if (id.startsWith('gpt-4-')) return 70;
+                    return 30;
+                };
+                return rank(b.id) - rank(a.id);
             });
 
-            return models;
+            return combined;
         }
 
         if (providerId === 'openrouter') {
-            const res = await fetch('https://openrouter.ai/api/v1/models', {
-                headers: { 'Authorization': `Bearer ${apiKey}` }
+            let apiModels = [];
+            try {
+                const res = await fetch('https://openrouter.ai/api/v1/models', {
+                    headers: { 'Authorization': `Bearer ${apiKey}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    apiModels = (data.data || [])
+                        .filter(m => {
+                            const id = m.id.toLowerCase();
+                            return !id.includes('embed') && !id.includes('whisper') && !id.includes('moderation');
+                        })
+                        .map(m => ({
+                            id: m.id,
+                            name: m.name || m.id,
+                            isPro: m.id.includes('pro') || m.id.includes('sonnet') || m.id.includes('r1') || m.id.includes('o1') || m.id.includes('o3')
+                        }));
+                }
+            } catch (e) {
+                console.warn('Erro ao consultar API de modelos OpenRouter:', e.message);
+            }
+
+            const combined = [...(AI_PROVIDERS.openrouter.predefinedModels || [])];
+            apiModels.forEach(m => {
+                if (!combined.some(c => c.id === m.id)) {
+                    combined.push(m);
+                }
             });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const data = await res.json();
 
-            const models = (data.data || []).map(m => ({
-                id: m.id,
-                name: m.name || m.id,
-                isPro: m.id.includes('pro') || m.id.includes('sonnet') || m.id.includes('r1')
-            }));
-
-            models.sort((a, b) => {
+            combined.sort((a, b) => {
                 if (a.isPro && !b.isPro) return -1;
                 if (!a.isPro && b.isPro) return 1;
                 return a.id.localeCompare(b.id);
             });
 
-            return models.slice(0, 40); // Limita aos 40 principais para clareza
+            return combined.slice(0, 40);
         }
 
         if (providerId === 'claude') {
