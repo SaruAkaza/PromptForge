@@ -263,14 +263,14 @@ async function fetchAvailableModels(providerId, apiKey) {
             // Ordena colocando modelos mais recentes e Pro no topo
             combined.sort((a, b) => {
                 const rank = (id) => {
-                    if (id.includes('3.8')) return 100;
-                    if (id.includes('2.5-pro')) return 90;
-                    if (id.includes('2.5-flash')) return 80;
-                    if (id.includes('thinking')) return 75;
-                    if (id.includes('2.0-flash')) return 70;
-                    if (id.includes('1.5-pro')) return 60;
-                    if (id.includes('1.5-flash')) return 50;
-                    return 10;
+                    const clean = id.toLowerCase();
+                    if (clean.includes('gemini-2.0-flash')) return 95;
+                    if (clean.includes('gemini-1.5-pro')) return 90;
+                    if (clean.includes('gemini-2.5-pro')) return 85;
+                    if (clean.includes('thinking')) return 80;
+                    if (clean.includes('gemini-1.5-flash')) return 70;
+                    if (clean.includes('3.8')) return 20; // Preview mantido acessível, mas sem sequestrar a auto-seleção
+                    return 50;
                 };
                 return rank(b.id) - rank(a.id);
             });
@@ -648,7 +648,10 @@ async function callOpenRouter(apiKey, systemPrompt, userMessage, jsonMode, model
                 temperature: 0.7,
                 max_tokens: 2500
             };
-            if (jsonMode) body.response_format = { type: 'json_object' };
+            const isClaude = model.toLowerCase().includes('claude') || model.toLowerCase().includes('anthropic');
+            if (jsonMode && !isClaude) {
+                body.response_format = { type: 'json_object' };
+            }
 
             const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
                 method: 'POST',
@@ -688,13 +691,110 @@ async function callOpenRouter(apiKey, systemPrompt, userMessage, jsonMode, model
 }
 
 /**
+ * Extrai e normaliza com máxima resiliência o JSON retornado por qualquer IA
+ */
+function extractAndNormalizeForgedJson(rawResult) {
+    if (!rawResult || typeof rawResult !== 'string') {
+        throw new Error('Resposta vazia da IA.');
+    }
+
+    let parsed = null;
+    const trimmed = rawResult.trim();
+
+    // 1. Tenta parse direto
+    try {
+        parsed = JSON.parse(trimmed);
+    } catch (_) {}
+
+    // 2. Se o modelo envolveu em bloco markdown ```json ... ```
+    if (!parsed) {
+        const codeBlockMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+        if (codeBlockMatch && codeBlockMatch[1]) {
+            try {
+                parsed = JSON.parse(codeBlockMatch[1].trim());
+            } catch (_) {}
+        }
+    }
+
+    // 3. Localiza entre a primeira chave { e a última chave }
+    if (!parsed) {
+        const firstBrace = trimmed.indexOf('{');
+        const lastBrace = trimmed.lastIndexOf('}');
+        if (firstBrace !== -1 && lastBrace > firstBrace) {
+            const candidate = trimmed.substring(firstBrace, lastBrace + 1);
+            try {
+                parsed = JSON.parse(candidate);
+            } catch (e) {
+                try {
+                    const sanitized = candidate
+                        .replace(/(?:\r\n|\r|\n)/g, '\n')
+                        .replace(/[\u0000-\u001F]+/g, ' ');
+                    parsed = JSON.parse(sanitized);
+                } catch (_) {}
+            }
+        }
+    }
+
+    // Se o modelo retornou um array com o objeto dentro [{...}]
+    if (Array.isArray(parsed) && parsed.length > 0) {
+        parsed = parsed[0];
+    }
+
+    if (!parsed || typeof parsed !== 'object') {
+        throw new Error('O modelo não retornou uma estrutura JSON decodificável.');
+    }
+
+    // Normalização defensiva dos campos
+    const title = parsed.title || parsed.titulo || parsed.name || 'Prompt estruturado';
+    const formattedPrompt = parsed.formattedPrompt || parsed.prompt || parsed.masterPrompt || parsed.master_prompt || parsed.content || parsed.response || '';
+
+    let educationalXray = [];
+    const rawXray = parsed.educationalXray || parsed.raioX || parsed.techniques || parsed.xray;
+    if (Array.isArray(rawXray)) {
+        educationalXray = rawXray.map(item => {
+            if (item && typeof item === 'object') {
+                return {
+                    technique: item.technique || item.tecnica || item.title || 'Engenharia de Prompt',
+                    explanation: item.explanation || item.explicacao || item.desc || String(item)
+                };
+            }
+            return {
+                technique: 'Engenharia de Prompt',
+                explanation: String(item)
+            };
+        });
+    } else if (rawXray && typeof rawXray === 'object') {
+        educationalXray = Object.entries(rawXray).map(([k, v]) => ({
+            technique: k,
+            explanation: typeof v === 'object' ? JSON.stringify(v) : String(v)
+        }));
+    } else if (typeof rawXray === 'string') {
+        educationalXray = [{ technique: 'Engenharia de Prompt', explanation: rawXray }];
+    }
+
+    let quickTips = [];
+    const rawTips = parsed.quickTips || parsed.dicas || parsed.tips;
+    if (Array.isArray(rawTips)) {
+        quickTips = rawTips.map(t => String(t).trim()).filter(Boolean);
+    } else if (typeof rawTips === 'string') {
+        quickTips = rawTips.split('\n').map(t => t.replace(/^[-*•0-9.)\s]+/, '').trim()).filter(Boolean);
+    }
+
+    return {
+        title,
+        formattedPrompt: formattedPrompt || 'Nenhum texto de prompt retornado.',
+        educationalXray,
+        quickTips
+    };
+}
+
+/**
  * Forja o prompt mestre usando o motor e modelo ativo
  */
 async function forgePromptWithAI(providerId, apiKey, rawIdea, category, tone, modelId = null) {
     const instruction = buildMetaPromptRequest(rawIdea, category, tone);
     const rawResult = await callUniversalAI(providerId, apiKey, '', instruction, true, modelId);
-    const cleanJson = rawResult.replace(/```json/g, '').replace(/```/g, '').trim();
-    return JSON.parse(cleanJson);
+    return extractAndNormalizeForgedJson(rawResult);
 }
 
 /**

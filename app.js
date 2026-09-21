@@ -98,16 +98,18 @@ const dom = {
 
     // Botões de Ação do Forjador
     btnCopyPrompt: document.getElementById('btnCopyPrompt'),
+    btnDownloadPromptMd: document.getElementById('btnDownloadPromptMd'),
     btnFavCurrent: document.getElementById('btnFavCurrent'),
     favStarIcon: document.getElementById('favStarIcon'),
     btnTestSinglePrompt: document.getElementById('btnTestSinglePrompt'),
     btnSendToCouncil: document.getElementById('btnSendToCouncil'),
 
-    // Playground Teste Individual
+    // Playground & Conselho
     playgroundArea: document.getElementById('playgroundArea'),
     singleTestTitle: document.getElementById('singleTestTitle'),
     playgroundOutput: document.getElementById('playgroundOutput'),
     btnClosePlayground: document.getElementById('btnClosePlayground'),
+    councilArea: document.getElementById('councilArea'),
 
     // Tela Exclusiva: Mesa Redonda (Debate entre IAs)
     roundTableQuestionInput: document.getElementById('roundTableQuestionInput'),
@@ -120,6 +122,7 @@ const dom = {
     roundTableResultContent: document.getElementById('roundTableResultContent'),
     rtHeaderModelCount: document.getElementById('rtHeaderModelCount'),
     btnCopyRoundTableConsensus: document.getElementById('btnCopyRoundTableConsensus'),
+    btnDownloadCouncilMd: document.getElementById('btnDownloadCouncilMd'),
     btnCopyRtConsensusInline: document.getElementById('btnCopyRtConsensusInline'),
     rtStatusStepper: document.getElementById('rtStatusStepper'),
     rtSpinner: document.getElementById('rtSpinner'),
@@ -576,6 +579,39 @@ function handleCopyRoundTableConsensus() {
     });
 }
 
+// Baixar Parecer da Mesa Redonda em arquivo .md
+function handleDownloadCouncilMarkdown() {
+    const consensusEl = dom.rtConsensusContent;
+    if (!consensusEl || !consensusEl.textContent.trim()) {
+        showToast('Nenhum parecer disponível para baixar.', 'warning');
+        return;
+    }
+    const consensusText = consensusEl.innerText || consensusEl.textContent;
+    const questionText = dom.roundTableQuestionInput ? dom.roundTableQuestionInput.value.trim() : 'Debate Técnico';
+    const dateStr = new Date().toISOString().split('T')[0];
+
+    let md = '';
+    md += '---\n';
+    md += `tipo: "Parecer de Consenso da Mesa Redonda"\n`;
+    md += `demanda: "${questionText.replace(/"/g, '\\"')}"\n`;
+    md += `data: "${dateStr}"\n`;
+    md += '---\n\n';
+    md += `# PARECER DE CONSENSO • MESA REDONDA DE IAS\n\n`;
+    md += `**Demanda Analisada:**\n> ${questionText}\n\n`;
+    md += `---\n\n`;
+    md += consensusText.trim() + '\n';
+
+    const slug = questionText
+        .toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 35) || 'parecer-mesa-redonda';
+    const filename = `consenso-${slug}.md`;
+    downloadFile(md, filename);
+    showToast(`Parecer salvo como ${filename}!`, 'success');
+}
+
 // Transfere o prompt mestre do Forjador para a Mesa Redonda
 function handleSendToRoundTable() {
     if (!state.currentPromptData) return;
@@ -637,6 +673,11 @@ function setupEventListeners() {
 
     // Copiar Prompt
     dom.btnCopyPrompt.addEventListener('click', handleCopyPrompt);
+
+    // Baixar Prompt como arquivo .md
+    if (dom.btnDownloadPromptMd) {
+        dom.btnDownloadPromptMd.addEventListener('click', handleDownloadPromptMarkdown);
+    }
 
     // Favoritar
     dom.btnFavCurrent.addEventListener('click', handleToggleFavoriteCurrent);
@@ -775,6 +816,9 @@ function setupEventListeners() {
     }
     if (dom.btnCopyRoundTableConsensus) {
         dom.btnCopyRoundTableConsensus.addEventListener('click', handleCopyRoundTableConsensus);
+    }
+    if (dom.btnDownloadCouncilMd) {
+        dom.btnDownloadCouncilMd.addEventListener('click', handleDownloadCouncilMarkdown);
     }
     if (dom.btnCopyRtConsensusInline) {
         dom.btnCopyRtConsensusInline.addEventListener('click', handleCopyRoundTableConsensus);
@@ -1061,13 +1105,16 @@ function displayPromptResult(data) {
 
     // Notas Estruturais
     dom.xrayCardsContainer.innerHTML = '';
-    if (data.educationalXray && data.educationalXray.length > 0) {
-        data.educationalXray.forEach(item => {
+    const xrayList = Array.isArray(data.educationalXray) ? data.educationalXray : [];
+    if (xrayList.length > 0) {
+        xrayList.forEach(item => {
             const card = document.createElement('div');
             card.className = 'xray-card';
+            const tech = (item && item.technique) || 'Engenharia de Prompt';
+            const expl = (item && item.explanation) || String(item || '');
             card.innerHTML = `
-                <div class="xray-card-title">${item.technique}</div>
-                <div class="xray-card-desc">${item.explanation}</div>
+                <div class="xray-card-title">${escapeHtml(tech)}</div>
+                <div class="xray-card-desc">${escapeHtml(expl)}</div>
             `;
             dom.xrayCardsContainer.appendChild(card);
         });
@@ -1075,22 +1122,101 @@ function displayPromptResult(data) {
 
     // Dicas
     dom.quickTipsContainer.innerHTML = '';
-    if (data.quickTips && data.quickTips.length > 0) {
-        data.quickTips.forEach(tip => {
+    const tipsList = Array.isArray(data.quickTips) ? data.quickTips : [];
+    if (tipsList.length > 0) {
+        tipsList.forEach(tip => {
             const tipEl = document.createElement('div');
             tipEl.className = 'tip-item';
             tipEl.innerHTML = `
                 <i data-lucide="arrow-right" style="width: 12px; height: 12px; flex-shrink: 0; color: var(--accent);"></i>
-                <span>${tip}</span>
+                <span>${escapeHtml(String(tip))}</span>
             `;
             dom.quickTipsContainer.appendChild(tipEl);
         });
     }
 
-    dom.playgroundArea.classList.remove('open');
-    dom.councilArea.classList.remove('open');
+    if (dom.playgroundArea) dom.playgroundArea.classList.remove('open');
+    if (dom.councilArea) dom.councilArea.classList.remove('open');
 
     refreshIcons();
+}
+
+// Utilitário Genérico de Download no Navegador
+function downloadFile(content, filename, mimeType = 'text/markdown;charset=utf-8;') {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+// Constrói Documento Markdown Completo com Metadados e Frontmatter
+function buildMarkdownDocument(data) {
+    if (!data) return '';
+    const catObj = PROMPT_CATEGORIES[data.category] || PROMPT_CATEGORIES.coding;
+    const toneObj = PROMPT_TONES[data.tone] || PROMPT_TONES.technical;
+    const dateStr = data.createdAt ? new Date(data.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+
+    let md = '';
+    // Frontmatter YAML para compatibilidade universal com Obsidian, VS Code, Notion e IAs
+    md += '---\n';
+    md += `titulo: "${(data.title || 'Prompt Mestre').replace(/"/g, '\\"')}"\n`;
+    md += `categoria: "${catObj.name}"\n`;
+    md += `tom_de_voz: "${toneObj.name}"\n`;
+    md += `motor_utilizado: "${data.engineUsed || 'PromptForge'}"\n`;
+    md += `data_geracao: "${dateStr}"\n`;
+    md += '---\n\n';
+
+    // Corpo integral do Prompt Mestre
+    md += data.formattedPrompt + '\n\n';
+
+    // Notas de Engenharia
+    const xrayList = Array.isArray(data.educationalXray) ? data.educationalXray : [];
+    if (xrayList.length > 0) {
+        md += '---\n\n';
+        md += '### 📐 Notas de Engenharia de Prompt\n\n';
+        xrayList.forEach(item => {
+            const tech = item.technique || 'Engenharia de Prompt';
+            const expl = item.explanation || String(item);
+            md += `* **${tech}:** ${expl}\n`;
+        });
+        md += '\n';
+    }
+
+    // Dicas de Execução & Interação
+    const tipsList = Array.isArray(data.quickTips) ? data.quickTips : [];
+    if (tipsList.length > 0) {
+        md += '### 💡 Dicas de Execução & Interação\n\n';
+        tipsList.forEach(tip => {
+            md += `* ${tip}\n`;
+        });
+        md += '\n';
+    }
+
+    return md.trim() + '\n';
+}
+
+// Baixar Prompt Estruturado como Arquivo .md
+function handleDownloadPromptMarkdown() {
+    if (!state.currentPromptData) {
+        showToast('Nenhum documento disponível para baixar.', 'warning');
+        return;
+    }
+    const mdContent = buildMarkdownDocument(state.currentPromptData);
+    const rawTitle = state.currentPromptData.title || state.currentPromptData.rawIdea || 'prompt-mestre';
+    const slug = rawTitle
+        .toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 35) || 'prompt-mestre';
+    const filename = `${slug}.md`;
+    downloadFile(mdContent, filename);
+    showToast(`Arquivo ${filename} baixado com sucesso!`, 'success');
 }
 
 // Copiar Prompt
