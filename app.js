@@ -41,6 +41,10 @@ Object.keys(state.configuredModels).forEach(provId => {
             state.configuredModels[provId] = 'anthropic/claude-3.7-sonnet';
             const prov = AI_PROVIDERS[provId];
             if (prov) localStorage.setItem(prov.modelStorageKey, 'anthropic/claude-3.7-sonnet');
+        } else if (provId === 'gemini' && (cleaned.includes('hight') || cleaned.includes('3.9') || cleaned === 'gemini-2.0-flash' || cleaned === 'gemini-3.8-preview')) {
+            state.configuredModels[provId] = 'gemini-3.9-flash-high';
+            const prov = AI_PROVIDERS[provId];
+            if (prov) localStorage.setItem(prov.modelStorageKey, 'gemini-3.9-flash-high');
         } else if (cleaned !== m) {
             state.configuredModels[provId] = cleaned;
             const prov = AI_PROVIDERS[provId];
@@ -937,7 +941,8 @@ async function loadModelsForProvider(provId, key, isManualRefresh = false) {
             const topModelObj = models.find(m => m.id === activeModel) || models[0];
 
             if (dom.provModelDetectTag) {
-                dom.provModelDetectTag.textContent = `${models.length} modelos detectados • ${topModelObj.name.split(' ')[0]} ativo`;
+                const displayName = (topModelObj.name || topModelObj.id).replace(/\[.*?\]|\(.*?\)/g, '').trim();
+                dom.provModelDetectTag.textContent = `${models.length} modelos detectados • ${displayName} ativo`;
                 dom.provModelDetectTag.style.color = 'var(--sage)';
             }
 

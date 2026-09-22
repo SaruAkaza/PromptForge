@@ -8,18 +8,21 @@ const AI_PROVIDERS = {
     gemini: {
         id: 'gemini',
         name: 'Google Gemini',
-        defaultModel: 'gemini-2.0-flash',
-        topCuttingEdgeModel: 'gemini-2.0-flash',
+        defaultModel: 'gemini-3.9-flash-high',
+        topCuttingEdgeModel: 'gemini-3.9-flash-high',
         keyStorageKey: 'promptforge_key_gemini',
         modelStorageKey: 'promptforge_model_gemini',
         docsUrl: 'https://aistudio.google.com/app/apikey',
         canDiscoverModels: true,
         predefinedModels: [
-            { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash (Mais recente / Recomendado)', isPro: false },
-            { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro (Alta profundidade / Raciocínio)', isPro: true },
-            { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash (Rápido e estável)', isPro: false },
-            { id: 'gemini-2.0-flash-thinking-exp-01-21', name: 'Gemini 2.0 Flash Thinking (Raciocínio experimental)', isPro: true },
-            { id: 'gemini-3.8-preview', name: 'Gemini 3.8 Preview (Preview / Se ativo na conta)', isPro: true }
+            { id: 'gemini-3.9-flash-high', name: 'Gemini 3.9 Flash High (Mais atual / Alta performance)', isPro: true },
+            { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash (Nova geração / Alta velocidade)', isPro: true },
+            { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash (Raciocínio avançado)', isPro: true },
+            { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash (Rápido e versátil)', isPro: true },
+            { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro (Raciocínio profundo)', isPro: true },
+            { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash (Estável)', isPro: false },
+            { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro (Janela ampla de contexto)', isPro: true },
+            { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash (Leve)', isPro: false }
         ]
     },
     groq: {
@@ -238,8 +241,12 @@ async function fetchAvailableModels(providerId, apiKey) {
                             const id = m.name.replace('models/', '');
                             const isPro = id.includes('pro') || id.includes('ultra') || id.includes('3.') || id.includes('thinking');
                             let prettyName = m.displayName || id;
-                            if (id === 'gemini-3.8-preview') prettyName = 'Gemini 3.8 Preview (Mais recente / Pro)';
-                            else if (id === 'gemini-2.5-pro') prettyName = 'Gemini 2.5 Pro (Raciocínio avançado)';
+                            if (id.includes('3.9') && (id.includes('high') || id.includes('hight'))) prettyName = 'Gemini 3.9 Flash High (Mais atual / Alta performance)';
+                            else if (id === 'gemini-3.8-flash') prettyName = 'Gemini 3.8 Flash (Nova geração / Alta velocidade)';
+                            else if (id === 'gemini-3.7-flash') prettyName = 'Gemini 3.7 Flash (Raciocínio avançado)';
+                            else if (id === 'gemini-3.5-flash') prettyName = 'Gemini 3.5 Flash (Rápido e versátil)';
+                            else if (id === 'gemini-3.8-preview') prettyName = 'Gemini 3.8 Preview (Preview Pro)';
+                            else if (id === 'gemini-2.5-pro') prettyName = 'Gemini 2.5 Pro (Raciocínio profundo)';
                             else if (id === 'gemini-2.5-flash') prettyName = 'Gemini 2.5 Flash (Rápido e versátil)';
                             else if (id === 'gemini-2.0-flash-thinking-exp') prettyName = 'Gemini 2.0 Flash Thinking (Raciocínio)';
                             return { id, name: prettyName, isPro };
@@ -260,19 +267,36 @@ async function fetchAvailableModels(providerId, apiKey) {
                 }
             });
 
-            // Ordena colocando modelos mais recentes e Pro no topo
+            // Ordena colocando a versão mais atualizada e potente sempre no topo (3.9 > 3.8 > 3.7 > 2.5 > 2.0 > 1.5)
             combined.sort((a, b) => {
-                const rank = (id) => {
-                    const clean = id.toLowerCase();
-                    if (clean.includes('gemini-2.0-flash')) return 95;
-                    if (clean.includes('gemini-1.5-pro')) return 90;
-                    if (clean.includes('gemini-2.5-pro')) return 85;
-                    if (clean.includes('thinking')) return 80;
-                    if (clean.includes('gemini-1.5-flash')) return 70;
-                    if (clean.includes('3.8')) return 20; // Preview mantido acessível, mas sem sequestrar a auto-seleção
-                    return 50;
+                const getScore = (item) => {
+                    const id = (item.id || '').toLowerCase();
+                    let score = 0;
+
+                    // 1. Extração numérica de versão (3.9 -> 390, 3.8 -> 380, 2.5 -> 250, 1.5 -> 150)
+                    const vMatch = id.match(/(?:gemini-)?(\d+)(?:\.(\d+))?/);
+                    if (vMatch) {
+                        const major = parseInt(vMatch[1], 10) || 0;
+                        const minor = parseInt(vMatch[2] || '0', 10) || 0;
+                        score += (major * 100) + (minor * 10);
+                    }
+
+                    // 2. Modificadores de capacidade
+                    if (id.includes('high') || id.includes('hight')) score += 30;
+                    if (id.includes('pro')) score += 15;
+                    if (id.includes('flash')) score += 10;
+                    if (id.includes('thinking')) score += 8;
+
+                    // 3. Penaliza modelos de áudio/visão/robótica não voltados a meta-prompting
+                    if (id.includes('tts') || id.includes('transcribe') || id.includes('clip') || id.includes('robotics')) {
+                        score -= 90;
+                    }
+                    if (id.includes('nano')) score -= 40;
+
+                    return score;
                 };
-                return rank(b.id) - rank(a.id);
+
+                return getScore(b) - getScore(a);
             });
 
             return combined;
@@ -441,14 +465,26 @@ async function callUniversalAI(providerId, apiKey, systemPrompt, userMessage, js
 
 // 1. Google Gemini
 async function callGemini(apiKey, systemPrompt, userMessage, jsonMode, modelId) {
-    const rawTarget = (modelId || AI_PROVIDERS.gemini.defaultModel).trim();
-    // Fallback prioritário: se o modelo configurado falhar (ex: 404 para previews ou versões experimentais não liberadas na conta),
-    // tenta imediatamente os modelos estáveis e oficiais da Google AI Studio
+    let rawTarget = (modelId || AI_PROVIDERS.gemini.defaultModel).trim();
+
+    // Sanitização e normalização de aliases digitados pelo usuário (ex: "3.9 Flash Hight" -> "gemini-3.9-flash-high")
+    rawTarget = rawTarget.replace(/hight/i, 'high');
+    if (!rawTarget.startsWith('gemini-') && !rawTarget.startsWith('models/')) {
+        rawTarget = 'gemini-' + rawTarget;
+    }
+    rawTarget = rawTarget.toLowerCase().replace(/\s+/g, '-');
+
+    // Fallback inteligente priorizando sempre os modelos mais recentes em cascata
     const fallbackList = [
         rawTarget,
+        'gemini-3.9-flash-high',
+        'gemini-3.8-flash',
+        'gemini-3.7-flash',
+        'gemini-3.5-flash',
+        'gemini-2.5-pro',
         'gemini-2.0-flash',
-        'gemini-1.5-flash',
-        'gemini-1.5-pro'
+        'gemini-1.5-pro',
+        'gemini-1.5-flash'
     ];
     const tried = new Set();
     let lastError = null;
