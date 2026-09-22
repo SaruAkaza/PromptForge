@@ -1083,7 +1083,7 @@ function startForgerThinking(engineName) {
         });
     }
 
-    updateThinkingStep(1, 'Analisando briefing e identificando premissas de contexto...');
+    updateThinkingStep(1, 'Destilando intenção da argumentação e extraindo premissas semânticas...');
 }
 
 function updateThinkingStep(stepNumber, statusMessage) {
@@ -1244,7 +1244,7 @@ async function handleForgePrompt() {
         let resultData = null;
         let usedEngineName = engineLabel;
 
-        updateThinkingStep(1, 'Analisando briefing e diagnosticando premissas de contexto...');
+        updateThinkingStep(1, 'Destilando intenção da argumentação e extraindo premissas semânticas...');
 
         const catName = PROMPT_CATEGORIES[state.selectedCategory]?.name || 'Geral';
         const toneName = PROMPT_TONES[state.selectedTone]?.name || 'Técnico';

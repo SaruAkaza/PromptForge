@@ -172,43 +172,50 @@ function buildMetaPromptRequest(rawIdea, categoryKey, toneKey) {
     const tone = PROMPT_TONES[toneKey] || PROMPT_TONES.technical;
 
     return `
-Você é um especialista em engenharia de prompts e seu trabalho é pegar uma ideia simples de um usuário e transformá-la em um PROMPT MESTRE DE ALTO DESEMPENHO, além de orientar o usuário sobre as técnicas aplicadas.
+Você é um Arquiteto Sênior de Engenharia de Prompts. Sua missão é receber o relato ou a argumentação bruta de um usuário e realizar a DESTILAÇÃO SEMÂNTICA COMPLETA, transformando-a em um PROMPT MESTRE DE ALTO IMPACTO, perfeitamente estruturado e contextualizado.
 
-Ideia fornecida pelo usuário:
-"${rawIdea}"
+ARGUMENTAÇÃO / IDEIA BRUTA DO USUÁRIO:
+"""
+${rawIdea}
+"""
 
-Categoria selecionada: ${category.name}
-Tom de voz pretendido: ${tone.name} (${tone.description})
+CATEGORIA: ${category.name}
+TOM DE VOZ: ${tone.name} (${tone.description})
 
-Seu objetivo:
-1. Analisar a ideia bruta e preencher as lacunas de contexto necessárias para uma boa execução.
-2. Criar um prompt profissional estruturado nos seguintes blocos:
-   - [PAPEL & PERSONA]: Especialidade e ponto de vista que a IA deve adotar.
-   - [CONTEXTO & CENÁRIO]: Situação real, público final e premissas do problema.
-   - [OBJETIVO PRINCIPAL]: A meta clara a ser alcançada.
-   - [ROTEIRO POR ETAPAS]: O que deve ser resolvido em sequência lógica.
-   - [O QUE EVITAR & RESTRIÇÕES]: O que não deve entrar no texto (respostas genéricas, rodeios ou termos vagos).
+REGRA FUNDAMENTAL DE DESTILAÇÃO SEMÂNTICA (NÃO COPIAR O TEXTO DO USUÁRIO):
+1. NUNCA faça cópia literal nem cite frases cruas do usuário entre aspas.
+2. FILTRE O RUÍDO COGNITIVO: O usuário pode escrever em fluxo de consciência, com hesitações ("eu acho que", "queria ver se", "não sei se dá certo"), divagações ou linguagem coloquial. Descarte essas marcas orais e extraia apenas a dor real, os requisitos operacionais, o público e as metas implícitas.
+3. REESCRITA AUTÔNOMA DO CONTEXTO: Redija os blocos [CONTEXTO & CENÁRIO] e [OBJETIVO PRINCIPAL] com vocabulário técnico, elegante e de alto nível. O prompt gerado deve soar como um briefing executivo ou documento de engenharia de software/negócios, totalmente independente do texto bruto fornecido.
+4. ESTRUTURAÇÃO DO PROMPT MESTRE:
+   - [PAPEL & PERSONA]: Especialidade precisa e postura que a IA deve adotar.
+   - [CONTEXTO & CENÁRIO]: Situação real destilada, público-alvo, premissas de negócio/técnicas e variáveis chave.
+   - [OBJETIVO PRINCIPAL]: Meta clara, direta e acionável a ser alcançada.
+   - [ROTEIRO POR ETAPAS]: Sequência lógica de resolução, do diagnóstico à entrega.
+   - [O QUE EVITAR & RESTRIÇÕES]: O que não deve entrar no texto (respostas genéricas, rodeios, jargões vazios).
    - [FORMATO DE ENTREGA]: Formato exato da resposta (Markdown, tópicos, tabela ou código).
-3. Aplicar diretrizes da Skill Humanizer (Linguagem Humana & Anti-Clichês de IA):
-   - Proibir travessões (—) usados como conectores universais.
-   - Proibir a estrutura de contraste vazia "não apenas X, mas também Y" ou "não é X, é Y".
-   - Evitar termos robóticos e clichês de chatbot como "crucial", "robusto", "mergulhar", "paisagem", "testemunho", "no cerne".
-   - Variar naturalmente o tamanho das frases.
+
+5. DIRETRIZES HUMANIZER (LINGUAGEM HUMANA & ANTI-CLICHÊS):
+   - Proibir travessões (—) usados como muletas conectivas.
+   - Proibir a estrutura de contraste clichê "não apenas X, mas também Y".
+   - Eliminar termos robóticos ("crucial", "robusto", "mergulhar", "paisagem", "no cerne").
+   - Variar naturalmente a cadência e tamanho das frases.
    - Eliminar introduções e conclusões óbvias de chatbot ("com certeza!", "espero ter ajudado!").
-4. Gerar NOTAS DE ENGENHARIA explicando ao usuário as técnicas utilizadas no prompt.
+
+6. NOTAS DE ENGENHARIA (educationalXray):
+   - Explicar ao usuário como a intenção foi destilada e quais técnicas de engenharia de prompt transformaram a argumentação inicial em um documento de alta performance.
 
 Responda ESTRITAMENTE em formato JSON com o seguinte schema (não adicione texto fora do JSON):
 {
-  "title": "Um título descritivo e claro para este prompt",
+  "title": "Um título descritivo, executivo e claro para este prompt",
   "formattedPrompt": "Texto completo do prompt mestre formatado em Markdown",
   "educationalXray": [
     {
-      "technique": "Nome da técnica aplicada (ex: Atribuição de papel / Delimitação de restrições / Roteiro lógico)",
-      "explanation": "Explicação prática de como essa técnica torna a resposta da IA precisa e útil."
+      "technique": "Nome da técnica aplicada (ex: Destilação de intenção / Atribuição de persona / Roteiro sequencial)",
+      "explanation": "Explicação prática de como essa técnica foi extraída da demanda do usuário e por que ela gera um resultado superior."
     }
   ],
   "quickTips": [
-    "Dica prática 1 para o usuário interagir melhor com este prompt",
+    "Dica prática 1 para interagir com este prompt",
     "Dica prática 2"
   ]
 }
@@ -993,56 +1000,80 @@ DIRETRIZES:
 }
 
 /**
+ * Extrai o núcleo da intenção de um texto informal ou argumentação,
+ * removendo vícios de linguagem ("eu queria", "como faço", "preciso de", etc.)
+ */
+function distillIntentLocally(rawText) {
+    if (!rawText) return 'Planejamento e execução especializada';
+    
+    let clean = rawText
+        .replace(/^[\s"'\-–—]+/g, '')
+        .replace(/[\s"'\-–—]+$/g, '')
+        .replace(/^(eu queria|eu quero|gostaria de|preciso de|crie um|faça um|desejo um|como posso|como fazer|me ajude a|quero que você|estou pensando em|tenho uma ideia de|será que tem como|seria interessante)\s+/i, '')
+        .replace(/^(um|uma|o|a|os|as)\s+/i, '')
+        .trim();
+
+    if (!clean) clean = rawText.trim();
+    
+    // Capitaliza primeira letra
+    clean = clean.charAt(0).toUpperCase() + clean.slice(1);
+    // Remove ponto final duplicado
+    clean = clean.replace(/\.+$/, '');
+    return clean;
+}
+
+/**
  * Gerador de fallback quando o usuário ainda não colocou uma chave de API
  */
 function generateOfflinePrompt(rawIdea, categoryKey, toneKey) {
     const category = PROMPT_CATEGORIES[categoryKey] || PROMPT_CATEGORIES.coding;
     const tone = PROMPT_TONES[toneKey] || PROMPT_TONES.technical;
+    const coreDemand = distillIntentLocally(rawIdea);
 
     const formattedPrompt = `
-# PROMPT: ${rawIdea.toUpperCase()}
+# PROMPT: ESTRATÉGIA E EXECUÇÃO • ${coreDemand.toUpperCase().slice(0, 60)}
 
 ### 1. PAPEL & PERSONA
-Atue como um ${category.defaultPersona}. Você possui experiência prática em ${category.contextBase}. Seu estilo de comunicação deve ser ${tone.name.toLowerCase()} (${tone.description.toLowerCase()}).
+Atue como um ${category.defaultPersona}. Você possui sólida autoridade prática em ${category.contextBase}. Sua comunicação deve seguir o padrão ${tone.name.toLowerCase()} (${tone.description.toLowerCase()}), priorizando raciocínio estruturado e aplicabilidade imediata.
 
 ### 2. CONTEXTO & CENÁRIO
-O usuário precisa de uma solução completa para: "${rawIdea}". 
-Considere que o objetivo precisa de profundidade técnica e foco em aplicação prática.
+O desafio central consiste em desenvolver e operacionalizar uma solução para: ${coreDemand}.
+Considere as restrições reais de implementação, as variáveis críticas de sucesso e a necessidade de entregar um resultado sustentável, sem superficialidades conceituais.
 
 ### 3. OBJETIVO PRINCIPAL
-Fornecer um plano detalhado, prático e executável que atenda à demanda: "${rawIdea}".
+Entregar um plano de ação completo, aprofundado e executável para ${coreDemand.toLowerCase()}, garantindo clareza técnica e viabilidade prática.
 
 ### 4. INSTRUÇÕES DETALHADAS
-1. Faça um diagnóstico inicial do desafio, mapeando premissas e pontos centrais.
-2. Apresente a solução em etapas lógicas e estruturadas, justificando as escolhas feitas.
-3. Destaque erros comuns e armadilhas a serem evitados durante a execução.
-4. Forneça exemplos práticos ou modelos imediatamente aplicáveis.
+1. Realize o diagnóstico da demanda, detalhando premissas, requisitos técnicos e gargalos potenciais.
+2. Formule a estratégia em etapas sequenciais e autoexplicativas, fundamentando cada decisão técnica.
+3. Elenque os erros críticos de execução, armadilhas comuns e como preveni-los antecipadamente.
+4. Apresente modelos, especificações ou estruturas diretamente aplicáveis ao cenário.
 
 ### 5. REGRAS & RESTRIÇÕES
-- Não forneça respostas vagas ou teóricas demais; priorize ações concretas.
-- Seja objetivo e vá direto ao ponto principal.
-- Caso existam alternativas, compare os prós e contras sucintamente.
-- Evite fórmulas prontas de chatbot, travessões excessivos e introduções repetitivas.
+- Não forneça conselhos genéricos, introduções vazias ou conclusões de chatbot.
+- Foque na solução de problemas reais com profundidade analítica.
+- Caso haja caminhos alternativos, pondere prós e contras objetivamente.
+- Mantenha tom autêntico e linguagem direta, sem prolixidade.
 
 ### 6. FORMATO DE SAÍDA
-${category.outputFormat} Use marcações em Markdown e listas ordenadas para facilitar a leitura.
+${category.outputFormat} Estruture a resposta com títulos claros, listas ordenadas e blocos destacados para rápida leitura técnica.
 `.trim();
 
     return {
-        title: `${category.name}: ${rawIdea.slice(0, 35)}...`,
+        title: `${category.name}: ${coreDemand.slice(0, 40)}`,
         formattedPrompt: formattedPrompt,
         educationalXray: [
             {
-                technique: 'Atribuição de papel prático',
-                explanation: `Ao invés de apenas pedir "${rawIdea}", definimos a IA como "${category.defaultPersona}". Isso orienta o vocabulário e a profundidade da resposta.`
+                technique: 'Destilação e Abstração de Contexto',
+                explanation: `Em vez de copiar literalmente sua argumentação, o motor identificou a demanda central ("${coreDemand.slice(0, 45)}...") e construiu um briefing técnico autônomo.`
             },
             {
-                technique: 'Delimitação de restrições',
-                explanation: 'Modelos tendem a dar introduções óbvias. A seção de regras bloqueia enrolações e exige soluções práticas.'
+                technique: 'Atribuição de Papel Especialista',
+                explanation: `A IA foi enquadrada como "${category.defaultPersona}", direcionando vocabulário, profundidade e rigor metodológico.`
             },
             {
-                technique: 'Formato de entrega específico',
-                explanation: 'Instruir exatamente como a resposta deve vir poupa tempo e garante leitura direta.'
+                technique: 'Delimitação de Restrições Técnicas',
+                explanation: 'A proibição expressa de enrolações e respostas genéricas garante um plano diretamente acionável.'
             }
         ],
         quickTips: [
