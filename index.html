@@ -166,6 +166,42 @@
         </p>
       </div>
 
+      <!-- Painel de Telemetria e Raciocínio do Motor em Tempo Real -->
+      <div id="forgerThinkingBox" class="thinking-box" style="display: none;">
+        <div class="thinking-header">
+          <div class="thinking-title">
+            <span class="thinking-pulse-dot"></span>
+            <span id="thinkingEngineName">Motor de IA em processamento</span>
+          </div>
+          <div class="thinking-timer" id="thinkingTimer">0.0s</div>
+        </div>
+        <div class="thinking-current-status" id="thinkingStatusText">
+          Analisando briefing e diagnosticando lacunas de contexto...
+        </div>
+        <div class="thinking-steps-track" id="thinkingStepsTrack">
+          <div class="thinking-step" data-step="1">
+            <span class="step-dot">1</span>
+            <span class="step-label">Diagnóstico</span>
+          </div>
+          <div class="thinking-step" data-step="2">
+            <span class="step-dot">2</span>
+            <span class="step-label">Persona & Tom</span>
+          </div>
+          <div class="thinking-step" data-step="3">
+            <span class="step-dot">3</span>
+            <span class="step-label">Anti-Clichês</span>
+          </div>
+          <div class="thinking-step" data-step="4">
+            <span class="step-dot">4</span>
+            <span class="step-label">Arquitetura</span>
+          </div>
+          <div class="thinking-step" data-step="5">
+            <span class="step-dot">5</span>
+            <span class="step-label">Notas Técnicas</span>
+          </div>
+        </div>
+      </div>
+
       <!-- Área de Conteúdo Gerado -->
       <div id="resultContent" style="display: none; flex-direction: column; gap: 1.5rem;">
         
@@ -210,7 +246,13 @@
               <i data-lucide="align-left" style="width: 14px; height: 14px;"></i>
               <span>Documento estruturado</span>
             </div>
-            <span style="font-size: 0.74rem; color: var(--ink-muted);">Pronto para aplicação em qualquer modelo</span>
+            <div style="display: flex; align-items: center; gap: 0.6rem;">
+              <button id="btnSkipTyping" class="btn-skip-typing" style="display: none;" title="Pular efeito de digitação e ver tudo imediatamente">
+                <i data-lucide="fast-forward" style="width: 12px; height: 12px;"></i>
+                <span>Pular digitação</span>
+              </button>
+              <span id="promptStatusBadge" style="font-size: 0.74rem; color: var(--ink-muted);">Pronto para aplicação em qualquer modelo</span>
+            </div>
           </div>
           <pre id="promptTextDisplay" class="prompt-content"></pre>
         </div>

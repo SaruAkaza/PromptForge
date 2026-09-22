@@ -1189,3 +1189,204 @@ body {
     display: none;
   }
 }
+
+/* ======================================================
+   PAINEL DE TELEMETRIA E RACIOCÍNIO DO MOTOR EM TEMPO REAL
+   ====================================================== */
+.thinking-box {
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  padding: 1.15rem 1.35rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  animation: fadeInReveal 0.25s ease-out;
+}
+
+.thinking-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.thinking-title {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink-primary);
+}
+
+.thinking-pulse-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  animation: pulseDot 1.4s infinite ease-in-out;
+}
+
+@keyframes pulseDot {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.3);
+    opacity: 1;
+    box-shadow: 0 0 12px var(--accent);
+  }
+  100% {
+    transform: scale(0.9);
+    opacity: 0.6;
+  }
+}
+
+.thinking-timer {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--ink-muted);
+  background: var(--surface-raised);
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border-subtle);
+}
+
+.thinking-current-status {
+  font-size: 0.82rem;
+  color: var(--accent);
+  font-style: italic;
+  line-height: 1.4;
+  min-height: 1.2rem;
+  transition: opacity 0.2s ease;
+}
+
+.thinking-steps-track {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.5rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.thinking-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  opacity: 0.4;
+  transition: all 0.25s ease;
+}
+
+.thinking-step .step-dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--canvas);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--ink-muted);
+  transition: all 0.25s ease;
+}
+
+.thinking-step .step-label {
+  font-size: 0.68rem;
+  color: var(--ink-secondary);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.thinking-step.active {
+  opacity: 1;
+}
+
+.thinking-step.active .step-dot {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-subtle);
+  box-shadow: 0 0 8px rgba(229, 169, 59, 0.3);
+  transform: scale(1.1);
+}
+
+.thinking-step.active .step-label {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.thinking-step.done {
+  opacity: 0.85;
+}
+
+.thinking-step.done .step-dot {
+  background: var(--sage);
+  border-color: var(--sage);
+  color: #151619;
+}
+
+.thinking-step.done .step-label {
+  color: var(--ink-primary);
+}
+
+/* ======================================================
+   EFEITO DE DIGITAÇÃO STREAMING (ESTILO CHAT GEMINI)
+   ====================================================== */
+.streaming-cursor {
+  display: inline-block;
+  color: var(--accent);
+  font-weight: 700;
+  margin-left: 1px;
+  animation: blinkCursor 0.75s infinite ease-in-out;
+  user-select: none;
+}
+
+@keyframes blinkCursor {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.1;
+  }
+}
+
+.btn-skip-typing {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--ink-secondary);
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: all 0.15s ease;
+}
+
+.btn-skip-typing:hover {
+  background: var(--surface-overlay);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+@keyframes fadeInReveal {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.reveal-fade-in {
+  animation: fadeInReveal 0.35s ease-out forwards;
+}

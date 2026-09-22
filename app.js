@@ -91,11 +91,18 @@ const dom = {
 
     // Painel Direito (Forjador)
     emptyState: document.getElementById('emptyState'),
+    forgerThinkingBox: document.getElementById('forgerThinkingBox'),
+    thinkingEngineName: document.getElementById('thinkingEngineName'),
+    thinkingTimer: document.getElementById('thinkingTimer'),
+    thinkingStatusText: document.getElementById('thinkingStatusText'),
+    thinkingStepsTrack: document.getElementById('thinkingStepsTrack'),
     resultContent: document.getElementById('resultContent'),
     promptTitle: document.getElementById('promptTitle'),
     badgeCategory: document.getElementById('badgeCategory'),
     badgeTone: document.getElementById('badgeTone'),
     badgeEngineUsed: document.getElementById('badgeEngineUsed'),
+    promptStatusBadge: document.getElementById('promptStatusBadge'),
+    btnSkipTyping: document.getElementById('btnSkipTyping'),
     promptTextDisplay: document.getElementById('promptTextDisplay'),
     xrayCardsContainer: document.getElementById('xrayCardsContainer'),
     quickTipsContainer: document.getElementById('quickTipsContainer'),
@@ -683,6 +690,16 @@ function setupEventListeners() {
         dom.btnDownloadPromptMd.addEventListener('click', handleDownloadPromptMarkdown);
     }
 
+    // Pular Digitação / Streaming
+    if (dom.btnSkipTyping) {
+        dom.btnSkipTyping.addEventListener('click', handleSkipTyping);
+    }
+    if (dom.promptTextDisplay) {
+        dom.promptTextDisplay.addEventListener('click', () => {
+            if (activeStreaming.isStreaming) handleSkipTyping();
+        });
+    }
+
     // Favoritar
     dom.btnFavCurrent.addEventListener('click', handleToggleFavoriteCurrent);
 
@@ -1033,7 +1050,177 @@ function handleClearProviderKey() {
     showToast(`Chave de ${prov.name} removida.`, 'info');
 }
 
-// LÓGICA DE FORJAR PROMPT (MULTI-MOTOR COM MODELO DINÂMICO)
+// ======================================================
+// TELEMETRIA E RACIOCÍNIO DO MOTOR EM TEMPO REAL
+// ======================================================
+let thinkingInterval = null;
+let thinkingStartTime = 0;
+
+function startForgerThinking(engineName) {
+    if (!dom.forgerThinkingBox) return;
+
+    dom.emptyState.style.display = 'none';
+    dom.resultContent.style.display = 'none';
+    dom.forgerThinkingBox.style.display = 'flex';
+
+    if (dom.thinkingEngineName) {
+        dom.thinkingEngineName.textContent = `Processando com ${engineName}`;
+    }
+
+    thinkingStartTime = Date.now();
+    if (dom.thinkingTimer) dom.thinkingTimer.textContent = '0.0s';
+
+    clearInterval(thinkingInterval);
+    thinkingInterval = setInterval(() => {
+        const elapsed = ((Date.now() - thinkingStartTime) / 1000).toFixed(1);
+        if (dom.thinkingTimer) dom.thinkingTimer.textContent = `${elapsed}s`;
+    }, 100);
+
+    // Reseta visual dos passos
+    if (dom.thinkingStepsTrack) {
+        dom.thinkingStepsTrack.querySelectorAll('.thinking-step').forEach(s => {
+            s.className = 'thinking-step';
+        });
+    }
+
+    updateThinkingStep(1, 'Analisando briefing e identificando premissas de contexto...');
+}
+
+function updateThinkingStep(stepNumber, statusMessage) {
+    if (!dom.forgerThinkingBox) return;
+    if (dom.thinkingStatusText) {
+        dom.thinkingStatusText.style.opacity = '0';
+        setTimeout(() => {
+            dom.thinkingStatusText.textContent = statusMessage;
+            dom.thinkingStatusText.style.opacity = '1';
+        }, 120);
+    }
+
+    if (dom.thinkingStepsTrack) {
+        dom.thinkingStepsTrack.querySelectorAll('.thinking-step').forEach(stepEl => {
+            const num = parseInt(stepEl.dataset.step, 10);
+            if (num < stepNumber) {
+                stepEl.className = 'thinking-step done';
+            } else if (num === stepNumber) {
+                stepEl.className = 'thinking-step active';
+            } else {
+                stepEl.className = 'thinking-step';
+            }
+        });
+    }
+}
+
+function stopForgerThinking() {
+    clearInterval(thinkingInterval);
+    thinkingInterval = null;
+    if (dom.forgerThinkingBox) {
+        if (dom.thinkingStepsTrack) {
+            dom.thinkingStepsTrack.querySelectorAll('.thinking-step').forEach(stepEl => {
+                stepEl.className = 'thinking-step done';
+            });
+        }
+        setTimeout(() => {
+            if (dom.forgerThinkingBox) dom.forgerThinkingBox.style.display = 'none';
+        }, 350);
+    }
+}
+
+// ======================================================
+// MOTOR DE DIGITAÇÃO STREAMING (ESTILO CHAT GEMINI)
+// ======================================================
+let activeStreaming = {
+    isStreaming: false,
+    timerId: null,
+    fullText: '',
+    targetElement: null,
+    onComplete: null
+};
+
+function streamTextToElement(element, text, onComplete) {
+    stopStreaming(false);
+
+    if (!element || !text) {
+        if (onComplete) onComplete();
+        return;
+    }
+
+    activeStreaming.isStreaming = true;
+    activeStreaming.fullText = text;
+    activeStreaming.targetElement = element;
+    activeStreaming.onComplete = onComplete;
+
+    element.textContent = '';
+
+    const cursor = document.createElement('span');
+    cursor.className = 'streaming-cursor';
+    cursor.textContent = '▌';
+    element.appendChild(cursor);
+
+    if (dom.btnSkipTyping) {
+        dom.btnSkipTyping.style.display = 'inline-flex';
+    }
+
+    // Tokenização precisa mantendo palavras e quebras de linha
+    const tokens = text.match(/(\r\n|\n|\s+|\S+)/g) || [text];
+    let tokenIndex = 0;
+
+    // Velocidade de streaming adaptativa
+    const tokensPerTick = tokens.length > 600 ? 3 : (tokens.length > 300 ? 2 : 1);
+    const tickInterval = 14; // ms
+
+    activeStreaming.timerId = setInterval(() => {
+        if (!activeStreaming.isStreaming) return;
+
+        for (let i = 0; i < tokensPerTick && tokenIndex < tokens.length; i++) {
+            const token = tokens[tokenIndex++];
+            const textNode = document.createTextNode(token);
+            element.insertBefore(textNode, cursor);
+        }
+
+        element.scrollTop = element.scrollHeight;
+
+        if (tokenIndex >= tokens.length) {
+            stopStreaming(true);
+        }
+    }, tickInterval);
+}
+
+function stopStreaming(callCallback = true) {
+    if (activeStreaming.timerId) {
+        clearInterval(activeStreaming.timerId);
+        activeStreaming.timerId = null;
+    }
+    if (activeStreaming.targetElement) {
+        const cursor = activeStreaming.targetElement.querySelector('.streaming-cursor');
+        if (cursor) cursor.remove();
+    }
+    if (dom.btnSkipTyping) {
+        dom.btnSkipTyping.style.display = 'none';
+    }
+
+    const cb = activeStreaming.onComplete;
+    activeStreaming.isStreaming = false;
+    activeStreaming.onComplete = null;
+
+    if (callCallback && cb) {
+        cb();
+    }
+}
+
+function handleSkipTyping() {
+    if (!activeStreaming.isStreaming || !activeStreaming.targetElement) return;
+    const el = activeStreaming.targetElement;
+    const text = activeStreaming.fullText;
+    const cb = activeStreaming.onComplete;
+
+    stopStreaming(false);
+    el.textContent = text;
+    el.scrollTop = el.scrollHeight;
+
+    if (cb) cb();
+}
+
+// LÓGICA DE FORJAR PROMPT (MULTI-MOTOR COM TELEMETRIA E STREAMING)
 async function handleForgePrompt() {
     const rawIdea = dom.rawIdeaInput.value.trim();
     if (!rawIdea) {
@@ -1044,17 +1231,43 @@ async function handleForgePrompt() {
 
     setGeneratingState(true);
 
+    const provId = state.selectedForgingProvider;
+    const apiKey = state.apiKeys[provId];
+    const activeModel = state.configuredModels[provId] || (AI_PROVIDERS[provId] ? AI_PROVIDERS[provId].defaultModel : null);
+    const prov = AI_PROVIDERS[provId];
+    const engineLabel = provId !== 'offline' ? `${prov.name} (${activeModel})` : 'Motor estrutural local';
+
+    // Inicia a telemetria com as etapas de raciocínio
+    startForgerThinking(engineLabel);
+
     try {
-        const provId = state.selectedForgingProvider;
-        const apiKey = state.apiKeys[provId];
-        const activeModel = state.configuredModels[provId] || (AI_PROVIDERS[provId] ? AI_PROVIDERS[provId].defaultModel : null);
         let resultData = null;
-        let usedEngineName = 'Motor estrutural';
+        let usedEngineName = engineLabel;
+
+        updateThinkingStep(1, 'Analisando briefing e diagnosticando premissas de contexto...');
+
+        const catName = PROMPT_CATEGORIES[state.selectedCategory]?.name || 'Geral';
+        const toneName = PROMPT_TONES[state.selectedTone]?.name || 'Técnico';
+
+        // Agendador visual das etapas da telemetria
+        const timerStep2 = setTimeout(() => {
+            updateThinkingStep(2, `Definindo persona especialista (${catName}) e tom (${toneName})...`);
+        }, 750);
+
+        const timerStep3 = setTimeout(() => {
+            updateThinkingStep(3, 'Aplicando diretrizes Humanizer (eliminando clichês de chatbot e travessões)...');
+        }, 1600);
+
+        const timerStep4 = setTimeout(() => {
+            updateThinkingStep(4, 'Delimitando restrições técnicas, roteiro por etapas e formato de entrega...');
+        }, 2500);
+
+        const timerStep5 = setTimeout(() => {
+            updateThinkingStep(5, 'Sintetizando notas de engenharia de prompt e dicas de execução...');
+        }, 3400);
 
         if (provId !== 'offline' && apiKey) {
             try {
-                const prov = AI_PROVIDERS[provId];
-                usedEngineName = `${prov.name} (${activeModel})`;
                 resultData = await forgePromptWithAI(provId, apiKey, rawIdea, state.selectedCategory, state.selectedTone, activeModel);
             } catch (err) {
                 console.warn(`Erro no motor ${provId}, acionando motor offline:`, err);
@@ -1063,11 +1276,20 @@ async function handleForgePrompt() {
                 usedEngineName = 'Motor estrutural';
             }
         } else {
+            // Se offline, aguarda um instante mínimo para o usuário visualizar o fluxo estrutural
+            await new Promise(r => setTimeout(r, 850));
             resultData = generateOfflinePrompt(rawIdea, state.selectedCategory, state.selectedTone);
             if (provId !== 'offline' && !apiKey) {
                 showToast(`${AI_PROVIDERS[provId].name} sem chave cadastrada. Gerando com motor estrutural.`, 'info');
             }
         }
+
+        clearTimeout(timerStep2);
+        clearTimeout(timerStep3);
+        clearTimeout(timerStep4);
+        clearTimeout(timerStep5);
+
+        updateThinkingStep(5, 'Documento estruturado com sucesso! Iniciando exibição...');
 
         // Metadados
         resultData.id = 'pf_' + Date.now();
@@ -1079,19 +1301,21 @@ async function handleForgePrompt() {
         resultData.engineUsed = usedEngineName;
 
         state.currentPromptData = resultData;
-        displayPromptResult(resultData);
+        stopForgerThinking();
+        displayPromptResult(resultData, true); // true = streaming estilo chat ativo!
         saveToHistory(resultData);
 
     } catch (err) {
         console.error('Erro ao estruturar prompt:', err);
+        stopForgerThinking();
         showToast('Erro ao estruturar prompt: ' + err.message, 'danger');
     } finally {
         setGeneratingState(false);
     }
 }
 
-// Renderiza o resultado
-function displayPromptResult(data) {
+// Renderiza o resultado com suporte a digitação fluida
+function displayPromptResult(data, isLiveStreaming = false) {
     dom.emptyState.style.display = 'none';
     dom.resultContent.style.display = 'flex';
 
@@ -1104,40 +1328,66 @@ function displayPromptResult(data) {
     dom.badgeTone.textContent = toneObj.name;
     dom.badgeEngineUsed.textContent = data.engineUsed || 'PromptForge';
 
-    dom.promptTextDisplay.textContent = data.formattedPrompt;
-
     updateFavoriteButtonUI(data.isFavorite);
 
-    // Notas Estruturais
-    dom.xrayCardsContainer.innerHTML = '';
-    const xrayList = Array.isArray(data.educationalXray) ? data.educationalXray : [];
-    if (xrayList.length > 0) {
-        xrayList.forEach(item => {
-            const card = document.createElement('div');
-            card.className = 'xray-card';
-            const tech = (item && item.technique) || 'Engenharia de Prompt';
-            const expl = (item && item.explanation) || String(item || '');
-            card.innerHTML = `
-                <div class="xray-card-title">${escapeHtml(tech)}</div>
-                <div class="xray-card-desc">${escapeHtml(expl)}</div>
-            `;
-            dom.xrayCardsContainer.appendChild(card);
-        });
-    }
+    const renderSecondarySections = () => {
+        // Notas Estruturais com revelação suave
+        dom.xrayCardsContainer.innerHTML = '';
+        const xrayList = Array.isArray(data.educationalXray) ? data.educationalXray : [];
+        if (xrayList.length > 0) {
+            xrayList.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'xray-card reveal-fade-in';
+                const tech = (item && item.technique) || 'Engenharia de Prompt';
+                const expl = (item && item.explanation) || String(item || '');
+                card.innerHTML = `
+                    <div class="xray-card-title">${escapeHtml(tech)}</div>
+                    <div class="xray-card-desc">${escapeHtml(expl)}</div>
+                `;
+                dom.xrayCardsContainer.appendChild(card);
+            });
+        }
 
-    // Dicas
-    dom.quickTipsContainer.innerHTML = '';
-    const tipsList = Array.isArray(data.quickTips) ? data.quickTips : [];
-    if (tipsList.length > 0) {
-        tipsList.forEach(tip => {
-            const tipEl = document.createElement('div');
-            tipEl.className = 'tip-item';
-            tipEl.innerHTML = `
-                <i data-lucide="arrow-right" style="width: 12px; height: 12px; flex-shrink: 0; color: var(--accent);"></i>
-                <span>${escapeHtml(String(tip))}</span>
-            `;
-            dom.quickTipsContainer.appendChild(tipEl);
+        // Dicas com revelação suave
+        dom.quickTipsContainer.innerHTML = '';
+        const tipsList = Array.isArray(data.quickTips) ? data.quickTips : [];
+        if (tipsList.length > 0) {
+            tipsList.forEach(tip => {
+                const tipEl = document.createElement('div');
+                tipEl.className = 'tip-item reveal-fade-in';
+                tipEl.innerHTML = `
+                    <i data-lucide="arrow-right" style="width: 12px; height: 12px; flex-shrink: 0; color: var(--accent);"></i>
+                    <span>${escapeHtml(String(tip))}</span>
+                `;
+                dom.quickTipsContainer.appendChild(tipEl);
+            });
+        }
+        refreshIcons();
+    };
+
+    if (isLiveStreaming) {
+        if (dom.promptStatusBadge) {
+            dom.promptStatusBadge.textContent = 'Gerando palavras em tempo real...';
+            dom.promptStatusBadge.style.color = 'var(--accent)';
+        }
+        dom.xrayCardsContainer.innerHTML = '';
+        dom.quickTipsContainer.innerHTML = '';
+
+        streamTextToElement(dom.promptTextDisplay, data.formattedPrompt, () => {
+            if (dom.promptStatusBadge) {
+                dom.promptStatusBadge.textContent = 'Pronto para aplicação em qualquer modelo';
+                dom.promptStatusBadge.style.color = 'var(--ink-muted)';
+            }
+            renderSecondarySections();
         });
+    } else {
+        stopStreaming(false);
+        if (dom.promptStatusBadge) {
+            dom.promptStatusBadge.textContent = 'Pronto para aplicação em qualquer modelo';
+            dom.promptStatusBadge.style.color = 'var(--ink-muted)';
+        }
+        dom.promptTextDisplay.textContent = data.formattedPrompt;
+        renderSecondarySections();
     }
 
     if (dom.playgroundArea) dom.playgroundArea.classList.remove('open');
