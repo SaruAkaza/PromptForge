@@ -8,21 +8,19 @@ const AI_PROVIDERS = {
     gemini: {
         id: 'gemini',
         name: 'Google Gemini',
-        defaultModel: 'gemini-3.9-flash-high',
-        topCuttingEdgeModel: 'gemini-3.9-flash-high',
+        defaultModel: 'gemini-2.0-flash',
+        topCuttingEdgeModel: 'gemini-2.0-flash',
         keyStorageKey: 'promptforge_key_gemini',
         modelStorageKey: 'promptforge_model_gemini',
         docsUrl: 'https://aistudio.google.com/app/apikey',
         canDiscoverModels: true,
         predefinedModels: [
-            { id: 'gemini-3.9-flash-high', name: 'Gemini 3.9 Flash High (Mais atual / Alta performance)', isPro: true },
-            { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash (Nova geração / Alta velocidade)', isPro: true },
-            { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash (Raciocínio avançado)', isPro: true },
-            { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash (Rápido e versátil)', isPro: true },
-            { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro (Raciocínio profundo)', isPro: true },
-            { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash (Estável)', isPro: false },
-            { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro (Janela ampla de contexto)', isPro: true },
-            { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash (Leve)', isPro: false }
+            { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash (Mais recente / Recomendado)', isPro: false },
+            { id: 'gemini-2.0-flash-thinking-exp-01-21', name: 'Gemini 2.0 Flash Thinking (Raciocínio experimental)', isPro: true },
+            { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro (Alta profundidade / Janela ampla)', isPro: true },
+            { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash (Rápido e estável)', isPro: false },
+            { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro (Preview experimental)', isPro: true },
+            { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (Preview experimental)', isPro: true }
         ]
     },
     groq: {
@@ -248,14 +246,14 @@ async function fetchAvailableModels(providerId, apiKey) {
                             const id = m.name.replace('models/', '');
                             const isPro = id.includes('pro') || id.includes('ultra') || id.includes('3.') || id.includes('thinking');
                             let prettyName = m.displayName || id;
-                            if (id.includes('3.9') && (id.includes('high') || id.includes('hight'))) prettyName = 'Gemini 3.9 Flash High (Mais atual / Alta performance)';
-                            else if (id === 'gemini-3.8-flash') prettyName = 'Gemini 3.8 Flash (Nova geração / Alta velocidade)';
-                            else if (id === 'gemini-3.7-flash') prettyName = 'Gemini 3.7 Flash (Raciocínio avançado)';
-                            else if (id === 'gemini-3.5-flash') prettyName = 'Gemini 3.5 Flash (Rápido e versátil)';
-                            else if (id === 'gemini-3.8-preview') prettyName = 'Gemini 3.8 Preview (Preview Pro)';
-                            else if (id === 'gemini-2.5-pro') prettyName = 'Gemini 2.5 Pro (Raciocínio profundo)';
+                            if (id === 'gemini-2.0-flash') prettyName = 'Gemini 2.0 Flash (Mais recente / Recomendado)';
+                            else if (id.includes('flash-thinking')) prettyName = 'Gemini 2.0 Flash Thinking (Raciocínio experimental)';
+                            else if (id === 'gemini-1.5-pro') prettyName = 'Gemini 1.5 Pro (Alta profundidade / Janela ampla)';
+                            else if (id === 'gemini-1.5-flash') prettyName = 'Gemini 1.5 Flash (Rápido e estável)';
+                            else if (id === 'gemini-2.5-pro') prettyName = 'Gemini 2.5 Pro (Raciocínio avançado)';
                             else if (id === 'gemini-2.5-flash') prettyName = 'Gemini 2.5 Flash (Rápido e versátil)';
-                            else if (id === 'gemini-2.0-flash-thinking-exp') prettyName = 'Gemini 2.0 Flash Thinking (Raciocínio)';
+                            else if (id === 'gemini-3.8-flash') prettyName = 'Gemini 3.8 Flash (Preview)';
+                            else if (id === 'gemini-3.8-preview') prettyName = 'Gemini 3.8 Preview';
                             return { id, name: prettyName, isPro };
                         });
                 }
@@ -263,42 +261,31 @@ async function fetchAvailableModels(providerId, apiKey) {
                 console.warn('Erro ao consultar API de modelos Gemini:', e.message);
             }
 
-            // Mescla com modelos predefinidos garantindo que versões topo de linha estejam sempre disponíveis
-            const combined = [...(AI_PROVIDERS.gemini.predefinedModels || [])];
-            apiModels.forEach(m => {
-                const existingIdx = combined.findIndex(c => c.id === m.id);
-                if (existingIdx === -1) {
-                    combined.push(m);
-                } else if (m.name && !combined[existingIdx].name.includes('(')) {
-                    combined[existingIdx].name = m.name;
-                }
-            });
+            // Usa os modelos reais retornados da API; recorre aos modelos padrão apenas se a chamada falhar
+            const combined = apiModels.length > 0 ? apiModels : [...(AI_PROVIDERS.gemini.predefinedModels || [])];
 
-            // Ordena colocando a versão mais atualizada e potente sempre no topo (3.9 > 3.8 > 3.7 > 2.5 > 2.0 > 1.5)
+            // Ordena colocando a versão estável mais potente e recente no topo (2.0-flash > 2.0-thinking > 2.5-pro > 1.5-pro > 1.5-flash)
             combined.sort((a, b) => {
                 const getScore = (item) => {
                     const id = (item.id || '').toLowerCase();
                     let score = 0;
 
-                    // 1. Extração numérica de versão (3.9 -> 390, 3.8 -> 380, 2.5 -> 250, 1.5 -> 150)
-                    const vMatch = id.match(/(?:gemini-)?(\d+)(?:\.(\d+))?/);
-                    if (vMatch) {
-                        const major = parseInt(vMatch[1], 10) || 0;
-                        const minor = parseInt(vMatch[2] || '0', 10) || 0;
-                        score += (major * 100) + (minor * 10);
-                    }
+                    if (id === 'gemini-2.0-flash') score += 500;
+                    if (id.includes('thinking')) score += 480;
+                    if (id === 'gemini-2.5-pro') score += 460;
+                    if (id === 'gemini-1.5-pro') score += 420;
+                    if (id === 'gemini-2.5-flash') score += 400;
+                    if (id === 'gemini-1.5-flash') score += 380;
+                    if (id.includes('flash-latest')) score += 370;
+                    if (id.includes('pro-latest')) score += 360;
 
-                    // 2. Modificadores de capacidade
-                    if (id.includes('high') || id.includes('hight')) score += 30;
-                    if (id.includes('pro')) score += 15;
-                    if (id.includes('flash')) score += 10;
-                    if (id.includes('thinking')) score += 8;
+                    if (item.isPro) score += 20;
 
-                    // 3. Penaliza modelos de áudio/visão/robótica não voltados a meta-prompting
+                    // Penaliza modelos que não são de geração de texto pura
                     if (id.includes('tts') || id.includes('transcribe') || id.includes('clip') || id.includes('robotics')) {
-                        score -= 90;
+                        score -= 200;
                     }
-                    if (id.includes('nano')) score -= 40;
+                    if (id.includes('nano')) score -= 100;
 
                     return score;
                 };
@@ -474,21 +461,18 @@ async function callUniversalAI(providerId, apiKey, systemPrompt, userMessage, js
 async function callGemini(apiKey, systemPrompt, userMessage, jsonMode, modelId) {
     let rawTarget = (modelId || AI_PROVIDERS.gemini.defaultModel).trim();
 
-    // Sanitização e normalização de aliases digitados pelo usuário (ex: "3.9 Flash Hight" -> "gemini-3.9-flash-high")
-    rawTarget = rawTarget.replace(/hight/i, 'high');
+    // Sanitização e normalização de aliases digitados pelo usuário
+    if (rawTarget.includes('3.9') || rawTarget.includes('hight') || rawTarget.includes('high') || !rawTarget) {
+        rawTarget = 'gemini-2.0-flash';
+    }
     if (!rawTarget.startsWith('gemini-') && !rawTarget.startsWith('models/')) {
         rawTarget = 'gemini-' + rawTarget;
     }
     rawTarget = rawTarget.toLowerCase().replace(/\s+/g, '-');
 
-    // Fallback inteligente priorizando sempre os modelos mais recentes em cascata
+    // Fallback inteligente com modelos oficiais comprovados
     const fallbackList = [
         rawTarget,
-        'gemini-3.9-flash-high',
-        'gemini-3.8-flash',
-        'gemini-3.7-flash',
-        'gemini-3.5-flash',
-        'gemini-2.5-pro',
         'gemini-2.0-flash',
         'gemini-1.5-pro',
         'gemini-1.5-flash'
@@ -506,7 +490,7 @@ async function callGemini(apiKey, systemPrompt, userMessage, jsonMode, modelId) 
                 contents: [{ parts: [{ text: (systemPrompt ? `${systemPrompt}\n\n` : '') + userMessage }] }],
                 generationConfig: {
                     temperature: 0.7,
-                    maxOutputTokens: 2500
+                    maxOutputTokens: 8192
                 }
             };
             if (jsonMode) {
@@ -784,7 +768,35 @@ function extractAndNormalizeForgedJson(rawResult) {
     }
 
     if (!parsed || typeof parsed !== 'object') {
-        throw new Error('O modelo não retornou uma estrutura JSON decodificável.');
+        if (trimmed.length > 20) {
+            // Tenta extrair campos via Regex defensivo
+            const titleMatch = trimmed.match(/"(?:title|titulo)"\s*:\s*"([^"]+)"/i);
+            const promptMatch = trimmed.match(/"(?:formattedPrompt|prompt|masterPrompt)"\s*:\s*"([\s\S]+?)"(?:\s*,\s*"(?:educationalXray|quickTips|raioX|dicas)")/i);
+
+            if (promptMatch && promptMatch[1]) {
+                parsed = {
+                    title: titleMatch ? titleMatch[1] : 'Documento estruturado',
+                    formattedPrompt: promptMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"'),
+                    educationalXray: [],
+                    quickTips: []
+                };
+            } else {
+                // Se a IA respondeu com o prompt em Markdown diretamente em vez de JSON estrito
+                const cleanPrompt = trimmed.replace(/^```(?:markdown|text|json)?\s*/i, '').replace(/```\s*$/i, '');
+                parsed = {
+                    title: 'Documento estruturado',
+                    formattedPrompt: cleanPrompt,
+                    educationalXray: [
+                        { technique: 'Engenharia de Prompt Direta', explanation: 'Prompt estruturado com sucesso pelo modelo conectado de IA.' }
+                    ],
+                    quickTips: [
+                        'Dica: Copie o documento ou faça o download em .md para utilizá-lo em qualquer modelo.'
+                    ]
+                };
+            }
+        } else {
+            throw new Error('O modelo não retornou uma estrutura utilizável.');
+        }
     }
 
     // Normalização defensiva dos campos

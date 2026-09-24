@@ -32,7 +32,7 @@ const state = {
     isCouncilRunning: false
 };
 
-// Sanitização de modelos salvos com caracteres espúrios (como til ~ acidental) ou aliases obsoletos
+// Sanitização de modelos salvos com caracteres espúrios ou aliases inexistentes
 Object.keys(state.configuredModels).forEach(provId => {
     const m = state.configuredModels[provId];
     if (m && typeof m === 'string') {
@@ -41,10 +41,10 @@ Object.keys(state.configuredModels).forEach(provId => {
             state.configuredModels[provId] = 'anthropic/claude-3.7-sonnet';
             const prov = AI_PROVIDERS[provId];
             if (prov) localStorage.setItem(prov.modelStorageKey, 'anthropic/claude-3.7-sonnet');
-        } else if (provId === 'gemini' && (cleaned.includes('hight') || cleaned.includes('3.9') || cleaned === 'gemini-2.0-flash' || cleaned === 'gemini-3.8-preview')) {
-            state.configuredModels[provId] = 'gemini-3.9-flash-high';
+        } else if (provId === 'gemini' && (cleaned.includes('3.9') || cleaned.includes('hight') || cleaned.includes('high') || !cleaned)) {
+            state.configuredModels[provId] = 'gemini-2.0-flash';
             const prov = AI_PROVIDERS[provId];
-            if (prov) localStorage.setItem(prov.modelStorageKey, 'gemini-3.9-flash-high');
+            if (prov) localStorage.setItem(prov.modelStorageKey, 'gemini-2.0-flash');
         } else if (cleaned !== m) {
             state.configuredModels[provId] = cleaned;
             const prov = AI_PROVIDERS[provId];
@@ -1574,7 +1574,15 @@ function saveToHistory(promptData) {
 }
 
 function persistHistory() {
-    localStorage.setItem('promptforge_history', JSON.stringify(state.history));
+    try {
+        localStorage.setItem('promptforge_history', JSON.stringify(state.history));
+    } catch (e) {
+        console.warn('Alerta de cota do localStorage:', e);
+        try {
+            state.history = state.history.slice(0, 15);
+            localStorage.setItem('promptforge_history', JSON.stringify(state.history));
+        } catch (_) {}
+    }
 }
 
 function renderHistory() {
